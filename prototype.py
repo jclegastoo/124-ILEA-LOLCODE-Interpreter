@@ -73,7 +73,7 @@ def formatCode(code):
 
 
 def openFile():
-    filePath = filedialog.askopenfilename(title="Open LOLCODE File", filetypes=[("LOLCODE and Text Files", ("*.lol", "*.txt"))])
+    filePath = filedialog.askopenfilename(title="Open LOLCODE File", filetypes=[("LOLCODE Files", "*.lol")])
 
     if filePath:
         with open(filePath, "r", encoding="utf-8") as file:
@@ -112,12 +112,17 @@ def tokenize(code):
         position = 0
 
         while position < len(line):
+
+            # For a multiline comment
             if multilineComment:
+
+                # Searches for TLDR and checks the characters before and after it
                 end = re.search(r"(?<![A-Za-z0-9_])TLDR(?![A-Za-z0-9_])", line[position:])
 
                 if end:
                     endPosition = position + end.start()
 
+                    # Checks if there is a comment before TLDR
                     if endPosition > position:
                         tokens.append((line[position:endPosition], "Comment Text"))
 
@@ -132,10 +137,12 @@ def tokenize(code):
 
                 continue
 
+            # Skips the position if it is a space
             if line[position].isspace():
                 position += 1
                 continue
 
+            # Matches a keyword 
             match = keywordPattern.match(line, position)
 
             if match:
@@ -144,17 +151,20 @@ def tokenize(code):
                 position = match.end()
                 previous = word
 
+                # If the keyword is BTW, means it is a comment
                 if word == "BTW":
                     if position < len(line):
                         tokens.append((line[position:], "Comment Text"))
 
                     break
 
+                # Sets the multiline comment flag to true
                 if word == "OBTW":
                     multilineComment = True
 
                 continue
 
+            # If it is a ", detects that it is a YARN literal
             if line[position] == '"':
                 match = re.match(r'"[^"]*"', line[position:])
 
@@ -171,11 +181,13 @@ def tokenize(code):
                 previous = ""
                 continue
 
+            # Matches a number
             match = numberPattern.match(line, position)
 
             if match:
                 word = match.group()
 
+                # If it is a float NUMBAR, else NUMBR
                 if "." in word:
                     tokens.append((word, "NUMBAR Literal"))
                 else:
@@ -185,9 +197,11 @@ def tokenize(code):
                 previous = ""
                 continue
 
+            # Matches an identifier
             match = identifierPattern.match(line, position)
 
             if match:
+                # Goes to the classifyIdentifier function and returns the corresponding classification
                 word = match.group()
                 classification = classifyIdentifier(word, previous)
 
@@ -196,6 +210,7 @@ def tokenize(code):
                 previous = word
                 continue
 
+            # If unrecognized
             tokens.append((line[position], "Unrecognized Lexeme"))
             position += 1
 
