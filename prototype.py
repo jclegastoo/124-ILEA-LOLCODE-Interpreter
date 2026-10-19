@@ -100,7 +100,10 @@ def classifyIdentifier(word, previous):
     if previous == "IM IN YR" or previous == "IM OUTTA YR":
         return "Loop Identifier"
 
-    return "Variable Identifier"
+    if re.match(r'^[a-zA-Z][a-zA-Z0-9_]*$', word):
+        return "Variable Identifier"
+        
+    return "Unknown / Invalid Token"
 
 
 def tokenize(code):
