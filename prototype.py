@@ -62,46 +62,39 @@ keywords = {
 }
 
 types = {"NOOB", "NUMBR", "NUMBAR", "YARN", "TROOF"}
-
 keywordPattern = re.compile(r"(?<![A-Za-z0-9_])(?:" + "|".join(re.escape(word) for word in sorted(keywords, key=len, reverse=True)) + r")(?![A-Za-z0-9_])")
 numberPattern = re.compile(r"-?[0-9]+(?:\.[0-9]+)?(?![A-Za-z0-9_.])")
 identifierPattern = re.compile(r"[A-Za-z][A-Za-z0-9_]*")
-
+wordPattern = re.compile(r'[^\s"!,]+')
 
 def formatCode(code):
     return code.expandtabs(4)
 
-
 def openFile():
     filePath = filedialog.askopenfilename(title="Open LOLCODE File", filetypes=[("LOLCODE Files", "*.lol")])
-
     if filePath:
         with open(filePath, "r", encoding="utf-8") as file:
             code = file.read()
-
         code = formatCode(code)
-
         textEditor.delete("1.0", tk.END)
         textEditor.insert("1.0", code)
-
         fileSelector.set(os.path.basename(filePath))
 
+def isValidIdentifier(word):
+    return identifierPattern.fullmatch(word) is not None
 
 def classifyIdentifier(word, previous):
+    if not isValidIdentifier(word):
+        return "Unrecognized Lexeme"
     if word in types:
         return "Type Literal"
-
     if word == "WIN" or word == "FAIL":
         return "TROOF Literal"
-
     if previous == "HOW IZ I" or previous == "I IZ":
         return "Function Identifier"
-
     if previous == "IM IN YR" or previous == "IM OUTTA YR":
         return "Loop Identifier"
-
     return "Variable Identifier"
-
 
 def tokenize(code):
     tokens = []
@@ -110,31 +103,24 @@ def tokenize(code):
 
     for line in code.splitlines():
         position = 0
-
+        previous=""
         while position < len(line):
-
             # For a multiline comment
             if multilineComment:
-
                 # Searches for TLDR and checks the characters before and after it
                 end = re.search(r"(?<![A-Za-z0-9_])TLDR(?![A-Za-z0-9_])", line[position:])
-
                 if end:
                     endPosition = position + end.start()
-
                     # Checks if there is a comment before TLDR
                     if endPosition > position:
                         tokens.append((line[position:endPosition], "Comment Text"))
-
                     tokens.append(("TLDR", "Multiline Comment End"))
                     position = position + end.end()
                     multilineComment = False
                 else:
                     if line[position:]:
                         tokens.append((line[position:], "Comment Text"))
-
                     break
-
                 continue
 
             # Skips the position if it is a space
@@ -144,7 +130,6 @@ def tokenize(code):
 
             # Matches a keyword 
             match = keywordPattern.match(line, position)
-
             if match:
                 word = match.group()
                 tokens.append((word, keywords[word]))
@@ -155,19 +140,16 @@ def tokenize(code):
                 if word == "BTW":
                     if position < len(line):
                         tokens.append((line[position:], "Comment Text"))
-
                     break
 
                 # Sets the multiline comment flag to true
                 if word == "OBTW":
                     multilineComment = True
-
                 continue
 
             # If it is a ", detects that it is a YARN literal
             if line[position] == '"':
                 match = re.match(r'"[^"]*"', line[position:])
-
                 if match:
                     word = match.group()
                     tokens.append(('"', "String Delimiter"))
@@ -177,65 +159,55 @@ def tokenize(code):
                 else:
                     tokens.append(('"', "Unrecognized Lexeme"))
                     position += 1
-
                 previous = ""
                 continue
 
             # Matches a number
             match = numberPattern.match(line, position)
-
             if match:
                 word = match.group()
-
                 # If it is a float NUMBAR, else NUMBR
                 if "." in word:
                     tokens.append((word, "NUMBAR Literal"))
                 else:
                     tokens.append((word, "NUMBR Literal"))
-
                 position = match.end()
                 previous = ""
                 continue
 
             # Matches an identifier
-            match = identifierPattern.match(line, position)
-
+            match = wordPattern.match(line, position)
             if match:
-                # Goes to the classifyIdentifier function and returns the corresponding classification
                 word = match.group()
                 classification = classifyIdentifier(word, previous)
-
                 tokens.append((word, classification))
                 position = match.end()
-                previous = word
+                if classification == "Unrecognized Lexeme":
+                    previous = ""
+                else:
+                    previous = word
                 continue
 
             # If unrecognized
             tokens.append((line[position], "Unrecognized Lexeme"))
             position += 1
+            previous = ""
 
     return tokens
 
-
 def runLexer():
     code = textEditor.get("1.0", "end-1c")
-
     tokenTable.delete(*tokenTable.get_children())
-
     tokens = tokenize(code)
-
     for lexeme, classification in tokens:
         tokenTable.insert("", tk.END, values=(lexeme, classification))
-
 
 root = tk.Tk()
 root.title("LOLCODE Interpreter")
 root.geometry("900x650")
-
 # File selector
 fileFrame = tk.Frame(root)
 fileFrame.pack(fill="x", padx=5, pady=5)
-
 fileSelector = ttk.Combobox(fileFrame, state="readonly")
 fileSelector.pack(side="left", fill="x", expand=True)
 fileSelector.set("(None)")
@@ -246,7 +218,6 @@ openButton.pack(side="right", padx=5)
 # Text editor
 editorFont = tkfont.Font(family="Consolas", size=12)
 tabWidth = editorFont.measure("    ")
-
 textEditor = tk.Text(root, font=editorFont, wrap="none", tabs=(tabWidth,))
 textEditor.pack(fill="both", expand=True, padx=5, pady=5)
 
@@ -257,18 +228,13 @@ runButton.pack(pady=5)
 # List of Tokens
 tokenFrame = tk.LabelFrame(root, text="LEXEMES")
 tokenFrame.pack(fill="both", expand=True, padx=5, pady=5)
-
 tokenTable = ttk.Treeview(tokenFrame, columns=("Lexeme", "Classification"), show="headings")
-
 tokenTable.heading("Lexeme", text="Lexeme")
 tokenTable.heading("Classification", text="Classification")
-
 tokenTable.column("Lexeme", width=200)
 tokenTable.column("Classification", width=250)
-
 tokenScrollbar = ttk.Scrollbar(tokenFrame, orient="vertical", command=tokenTable.yview)
 tokenTable.configure(yscrollcommand=tokenScrollbar.set)
-
 tokenScrollbar.pack(side="right", fill="y")
 tokenTable.pack(fill="both", expand=True)
 
