@@ -68,7 +68,7 @@ def checkVisible(lineToks, lineNum, state):
             raise SyntaxErrorDetail("Expected expression before '!' in 'VISIBLE'.", lineNum)
 
     while cur:
-        expr, cur = parseExpression(cur)
+        _, cur = parseExpression(cur)
 
 
 # GIMMEH <var>

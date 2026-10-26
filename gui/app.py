@@ -9,13 +9,19 @@ class LolcodeApp:
     def __init__(self, root):
         self.root = root
         self.root.title("LOLCODE Interpreter")
-        self.root.geometry("900x650")
+        self.root.geometry("1100x750")
+        self.root.minsize(700, 500)
 
+        # Bottom widgets are packed first so they keep their space when the window shrinks
         self.buildFileSelector()
-        self.buildEditor()
-        self.buildRunButton()
-        self.buildTables()
         self.buildStatusBar()
+        self.buildRunButton()
+
+        # Editor on top, tables below; the divider can be dragged
+        mainPane = ttk.PanedWindow(self.root, orient="vertical")
+        mainPane.pack(fill="both", expand=True)
+        self.buildEditor(mainPane)
+        self.buildTables(mainPane)
 
     #layout
 
@@ -29,28 +35,31 @@ class LolcodeApp:
         openButton = tk.Button(fileFrame, text="Open", command=self.openFile)
         openButton.pack(side="right", padx=5)
 
-    def buildEditor(self):
+    def buildEditor(self, pane):
+        editorFrame = tk.Frame(pane)
+        pane.add(editorFrame, weight=1)
         editorFont = tkfont.Font(family="Consolas", size=12)
         tabWidth = editorFont.measure("    ")
-        self.textEditor = tk.Text(self.root, font=editorFont, wrap="none", tabs=(tabWidth,))
+        # height is in lines; kept small so the pane, not the text box, decides the size
+        self.textEditor = tk.Text(editorFrame, font=editorFont, wrap="none", tabs=(tabWidth,), height=10)
         self.textEditor.tag_config("error_highlight", background="#ffcccc")
         self.textEditor.pack(fill="both", expand=True, padx=5, pady=5)
 
     def buildRunButton(self):
         runButton = tk.Button(self.root, text="Run", command=self.run)
-        runButton.pack(pady=5)
+        runButton.pack(side="bottom", fill="x", padx=5, pady=5)
 
-    # Lexemes and symbol table side by side
-    def buildTables(self):
-        tablesFrame = tk.Frame(self.root)
-        tablesFrame.pack(fill="both", expand=True)
-        self.buildTokenTable(tablesFrame)
-        self.buildSymbolTable(tablesFrame)
+    # Lexemes and symbol table side by side; the divider can be dragged
+    def buildTables(self, pane):
+        tablesPane = ttk.PanedWindow(pane, orient="horizontal")
+        pane.add(tablesPane, weight=1)
+        self.buildTokenTable(tablesPane)
+        self.buildSymbolTable(tablesPane)
 
-    def buildTokenTable(self, parent):
-        tokenFrame = tk.LabelFrame(parent, text="LEXEMES")
-        tokenFrame.pack(side="left", fill="both", expand=True, padx=5, pady=5)
-        self.tokenTable = ttk.Treeview(tokenFrame, columns=("Lexeme", "Classification"), show="headings")
+    def buildTokenTable(self, pane):
+        tokenFrame = tk.LabelFrame(pane, text="LEXEMES")
+        pane.add(tokenFrame, weight=3)
+        self.tokenTable = ttk.Treeview(tokenFrame, columns=("Lexeme", "Classification"), show="headings", height=12)
         self.tokenTable.heading("Lexeme", text="Lexeme")
         self.tokenTable.heading("Classification", text="Classification")
         self.tokenTable.column("Lexeme", width=200)
@@ -60,10 +69,10 @@ class LolcodeApp:
         tokenScrollbar.pack(side="right", fill="y")
         self.tokenTable.pack(fill="both", expand=True)
 
-    def buildSymbolTable(self, parent):
-        symbolFrame = tk.LabelFrame(parent, text="SYMBOL TABLE")
-        symbolFrame.pack(side="right", fill="both", expand=True, padx=5, pady=5)
-        self.symbolTable = ttk.Treeview(symbolFrame, columns=("Identifier", "Value"), show="headings")
+    def buildSymbolTable(self, pane):
+        symbolFrame = tk.LabelFrame(pane, text="SYMBOL TABLE")
+        pane.add(symbolFrame, weight=2)
+        self.symbolTable = ttk.Treeview(symbolFrame, columns=("Identifier", "Value"), show="headings", height=12)
         self.symbolTable.heading("Identifier", text="Identifier")
         self.symbolTable.heading("Value", text="Value")
         self.symbolTable.column("Identifier", width=150)

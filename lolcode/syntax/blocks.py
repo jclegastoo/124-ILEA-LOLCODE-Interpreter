@@ -4,7 +4,7 @@ from ..tokens import SyntaxErrorDetail
 from .helpers import expectNoExtraTokens, parseWholeExpression
 
 
-# ---------- Conditionals: O RLY? / YA RLY / MEBBE / NO WAI ----------
+#---------- Conditionals: O RLY? / YA RLY / MEBBE / NO WAI----------
 
 def checkORly(lineToks, lineNum, state):
     expectNoExtraTokens(lineToks, "O RLY?", lineNum)
@@ -94,7 +94,7 @@ def checkLoopStart(lineToks, lineNum, state):
         cur = cur[1:]
         if not cur:
             raise SyntaxErrorDetail(f"Expected expression after '{condType}'.", lineNum)
-        expr, cur = parseExpression(cur)
+        _, cur = parseExpression(cur)
     if cur:
         raise SyntaxErrorDetail(f"Unexpected tokens in loop header: '{cur[0].lexeme}'.", lineNum)
     state.blockStack.append(('LOOP', lineNum, {'label': label}))
