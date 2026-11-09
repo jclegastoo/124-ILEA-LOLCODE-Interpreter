@@ -23,18 +23,32 @@ def checkBuhbye(lineToks, lineNum, state):
 
 # I HAS A <var> [ITZ <expr>]
 def checkDeclaration(lineToks, lineNum, state):
+    if not state.inWazzup:
+        raise SyntaxErrorDetail("'I HAS A' declaration is only allowed inside 'WAZZUP' and 'BUHBYE'.", lineNum)
+
     if len(lineToks) < 2:
         raise SyntaxErrorDetail("Expected variable identifier after 'I HAS A'.", lineNum)
+
     varTok = lineToks[1]
+
     if not isValidIdentifier(varTok.lexeme) or varTok.classification not in ("Variable Identifier", "Loop Identifier", "Function Identifier"):
         raise SyntaxErrorDetail(f"Invalid variable identifier '{varTok.lexeme}'.", lineNum)
 
     if len(lineToks) > 2:
         if lineToks[2].lexeme != "ITZ":
-            raise SyntaxErrorDetail(f"Unexpected token '{lineToks[2].lexeme}' in variable declaration. Expected 'ITZ' or newline.", lineNum)
+            raise SyntaxErrorDetail(
+                f"Unexpected token '{lineToks[2].lexeme}' in variable declaration. Expected 'ITZ' or newline.",
+                lineNum
+            )
+
         if len(lineToks) == 3:
             raise SyntaxErrorDetail("Expected expression after 'ITZ'.", lineNum)
-        parseWholeExpression(lineToks[3:], lineNum, "after variable initialization")
+
+        parseWholeExpression(
+            lineToks[3:],
+            lineNum,
+            "after variable initialization"
+        )
 
 
 # <var> R <expr>
