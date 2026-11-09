@@ -8,8 +8,14 @@ from .helpers import isType, expectNoExtraTokens, parseWholeExpression
 def checkWazzup(lineToks, lineNum, state):
     if state.inWazzup:
         raise SyntaxErrorDetail("Nested 'WAZZUP' is not allowed.", lineNum)
+
+    if state.hasWazzup:
+        raise SyntaxErrorDetail("Multiple 'WAZZUP' sections are not allowed.", lineNum)
+
     expectNoExtraTokens(lineToks, "WAZZUP", lineNum)
+
     state.inWazzup = True
+    state.hasWazzup = True
     state.wazzupLine = lineNum
 
 

@@ -8,6 +8,7 @@ class CheckerState:
     def __init__(self):
         self.inWazzup = False
         self.wazzupLine = None
+        self.hasWazzup = False
         # Entries are (blockType, startLine, data), e.g. ('LOOP', 4, {'label': 'x'})
         self.blockStack = []
 
