@@ -10,6 +10,7 @@ class CheckerState:
         self.wazzupLine = None
         self.hasWazzup = False
         # Entries are (blockType, startLine, data), e.g. ('LOOP', 4, {'label': 'x'})
+        self.declaredVariables = set()
         self.blockStack = []
 
     def topBlockType(self):

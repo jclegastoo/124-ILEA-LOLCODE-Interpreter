@@ -37,24 +37,28 @@ def checkDeclaration(lineToks, lineNum, state):
 
     varTok = lineToks[1]
 
-    if not isValidIdentifier(varTok.lexeme) or varTok.classification not in ("Variable Identifier", "Loop Identifier", "Function Identifier"):
+    if not isValidIdentifier(varTok.lexeme) or varTok.classification not in (
+        "Variable Identifier",
+        "Loop Identifier",
+        "Function Identifier"
+    ):
         raise SyntaxErrorDetail(f"Invalid variable identifier '{varTok.lexeme}'.", lineNum)
+
+    # Check for duplicate variable declaration
+    if varTok.lexeme in state.declaredVariables:
+        raise SyntaxErrorDetail(f"Variable '{varTok.lexeme}' is already declared.", lineNum)
 
     if len(lineToks) > 2:
         if lineToks[2].lexeme != "ITZ":
-            raise SyntaxErrorDetail(
-                f"Unexpected token '{lineToks[2].lexeme}' in variable declaration. Expected 'ITZ' or newline.",
-                lineNum
-            )
+            raise SyntaxErrorDetail(f"Unexpected token '{lineToks[2].lexeme}' in variable declaration. Expected 'ITZ' or newline.", lineNum)
 
         if len(lineToks) == 3:
             raise SyntaxErrorDetail("Expected expression after 'ITZ'.", lineNum)
 
-        parseWholeExpression(
-            lineToks[3:],
-            lineNum,
-            "after variable initialization"
-        )
+        parseWholeExpression(lineToks[3:], lineNum, "after variable initialization")
+
+    # Register variable after successful validation
+    state.declaredVariables.add(varTok.lexeme)
 
 
 # <var> R <expr>
