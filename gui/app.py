@@ -2,7 +2,8 @@ import os
 import tkinter as tk
 from tkinter import ttk, filedialog, messagebox, font as tkfont
 
-from lolcode import tokenize, formatCode, checkSyntax, buildSymbolTable, SyntaxErrorDetail
+from lolcode import tokenize, formatCode, checkSyntax, SyntaxErrorDetail
+from lolcode.evaluator import buildSymbolTable
 
 
 class LolcodeApp:
@@ -15,6 +16,7 @@ class LolcodeApp:
         # Bottom widgets are packed first so they keep their space when the window shrinks
         self.buildFileSelector()
         self.buildStatusBar()
+        self.buildConsole()
         self.buildRunButton()
 
         # Editor on top, tables below; the divider can be dragged
@@ -48,6 +50,23 @@ class LolcodeApp:
     def buildRunButton(self):
         runButton = tk.Button(self.root, text="Run", command=self.run)
         runButton.pack(side="bottom", fill="x", padx=5, pady=5)
+
+    def buildConsole(self):
+        consoleFrame = tk.LabelFrame(self.root, text="CONSOLE")
+        consoleFrame.pack(side="bottom", fill="x", padx=5, pady=5)
+        self.consoleText = tk.Text(consoleFrame, height=8, wrap="none", state="disabled")
+        consoleScrollbar = ttk.Scrollbar(consoleFrame, orient="vertical", command=self.consoleText.yview)
+        self.consoleText.configure(yscrollcommand=consoleScrollbar.set)
+        consoleScrollbar.pack(side="right", fill="y")
+        self.consoleText.pack(side="left", fill="x", expand=True, padx=5, pady=5)
+        inputFrame = tk.Frame(consoleFrame)
+        inputFrame.pack(side="bottom", fill="x", padx=5, pady=5)
+        self.inputVar = tk.StringVar()
+        self.inputEntry = tk.Entry(inputFrame, textvariable=self.inputVar)
+        self.inputEntry.pack(side="left", fill="x", expand=True)
+        self.inputEntry.bind("<Return>", lambda event: self.sendInput())
+        sendButton = tk.Button(inputFrame, text="Send", command=self.sendInput)
+        sendButton.pack(side="right", padx=5)
 
     # Lexemes and symbol table side by side; the divider can be dragged
     def buildTables(self, pane):
@@ -108,6 +127,9 @@ class LolcodeApp:
         code = self.textEditor.get("1.0", "end-1c")
         self.tokenTable.delete(*self.tokenTable.get_children())
         self.symbolTable.delete(*self.symbolTable.get_children())
+        self.consoleText.config(state="normal")
+        self.consoleText.delete("1.0", tk.END)
+        self.consoleText.config(state="disabled")
         tokens, lexErrors = tokenize(code)
 
         # Insert tokens into the table
@@ -130,7 +152,8 @@ class LolcodeApp:
 
         # Fill the symbol table only for syntactically valid programs
         try:
-            for symbol in buildSymbolTable(tokens):
+            table = buildSymbolTable(tokens, on_output=self.consoleWrite, on_input=self.consoleRead)
+            for symbol in table:
                 self.symbolTable.insert("", tk.END, values=(symbol.name, symbol.displayValue()))
         except (ValueError, NotImplementedError, ZeroDivisionError) as e:
             self.statusBar.config(text=f"Status: Evaluation Error: {e}", fg="red")
@@ -143,3 +166,19 @@ class LolcodeApp:
             self.textEditor.tag_add("error_highlight", f"{line}.0", f"{line}.end")
             self.textEditor.see(f"{line}.0")
         messagebox.showerror("Syntax Error", message)
+
+    def consoleWrite(self, text):
+        self.consoleText.config(state="normal")
+        self.consoleText.insert(tk.END, text)
+        self.consoleText.see(tk.END)
+        self.consoleText.config(state="disabled")
+
+    def sendInput(self):
+        self.inputVar.set(self.inputEntry.get())
+        self.inputEntry.delete(0, tk.END)
+
+    def consoleRead(self, varName):
+        self.inputVar.set("")
+        self.inputEntry.focus_set()
+        self.root.wait_variable(self.inputVar)
+        return self.inputVar.get()

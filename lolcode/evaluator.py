@@ -431,7 +431,7 @@ def parseWtfBlock(lines, startIdx):
 # 4. STATEMENT & PROGRAM EXECUTION
 # =============================================================================
 
-def executeStatements(lines, table):
+def executeStatements(lines, table, on_output=None, on_input=None):
     """
     Executes a sequence of (lineNum, lineToks) statements against the SymbolTable.
     Handles assignments, declarations, recasting, conditionals, switches, and expressions.
@@ -492,13 +492,20 @@ def executeStatements(lines, table):
         # Output statement: VISIBLE <expr>+ [!]
         if first.lexeme == "VISIBLE":
             cur = lineToks[1:]
-            if cur and cur[-1].lexeme == "!":
+            newline = bool(cur) and cur[-1].lexeme == "!"
+            if newline:
                 cur = cur[:-1]
+            output = ""
             while cur:
                 exprTree, cur = parseExpression(cur)
                 val, valType = evaluateExpression(exprTree, table)
                 # In LOLCODE 1.2, IT stores the result of the expression
                 table.assign("IT", val, valType)
+                output = output + castToYarn(val, valType)
+            if newline:
+                output = output + "\n"
+            if on_output:
+                on_output(output)
             i += 1
             continue
 
@@ -507,7 +514,8 @@ def executeStatements(lines, table):
             varName = lineToks[1].lexeme
             if not table.isDeclared(varName):
                 raise ValueError(f"Cannot store input into undeclared variable '{varName}'.")
-            table.assign(varName, "", "YARN")
+            value = on_input(varName) if on_input else ""
+            table.assign(varName, value, "YARN")
             i += 1
             continue
 
@@ -587,7 +595,7 @@ def executeStatements(lines, table):
     return None
 
 
-def buildSymbolTable(tokens):
+def buildSymbolTable(tokens, on_output=None, on_input=None):
     """
     Executes the LOLCODE program represented by tokens and returns the populated SymbolTable.
     Executes declarations, assignments, arithmetic, boolean, comparisons, typecasting,
@@ -615,7 +623,7 @@ def buildSymbolTable(tokens):
             linesDict.setdefault(t.line, []).append(t)
 
     bodyLines = sorted(linesDict.items())
-    executeStatements(bodyLines, table)
+    executeStatements(bodyLines, table, on_output, on_input)
 
     return table
 
