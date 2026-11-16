@@ -65,6 +65,10 @@ def tokenize(code):
             match = keywordPattern.match(line, position)
             if match:
                 word = match.group()
+
+                if word == "TLDR":
+                    lexErrors.append((f"Syntax Error at line {lineNum}: 'TLDR' without a matching 'OBTW'.", lineNum))
+
                 tokens.append(Token(word, keywords[word], lineNum))
                 position = match.end()
                 previous = word
@@ -77,6 +81,9 @@ def tokenize(code):
 
                 # Sets the multiline comment flag to true
                 if word == "OBTW":
+                    if line[:match.start()].strip() and not line[:match.start()].rstrip().endswith(","):
+                        lexErrors.append((f"Syntax Error at line {lineNum}: 'OBTW' must start on a new line or after a comma.", lineNum))
+
                     multilineComment = True
                     multilineStartLine = lineNum
                 continue
