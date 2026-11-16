@@ -1,5 +1,4 @@
 from .constants import types, binaryOperators
-from .lexer import isValidIdentifier
 from .tokens import SyntaxErrorDetail
 
 
@@ -21,19 +20,11 @@ def parseExpression(toks):
 
     # NUMBR / NUMBAR
     if tok.classification in ("NUMBR Literal", "NUMBAR Literal"):
-        return (tok.classification, tok.lexeme), toks[1:]
+        return (tok.classification.split()[0], tok.lexeme), toks[1:]
 
     # TROOF Literal (WIN / FAIL)
-    if tok.classification == "TROOF Literal" or tok.lexeme in ("WIN", "FAIL"):
+    if tok.classification == "TROOF Literal":
         return ("TROOF", tok.lexeme), toks[1:]
-
-    # Type Literal
-    if tok.classification == "Type Literal" or tok.lexeme in types:
-        return ("TYPE", tok.lexeme), toks[1:]
-
-    # Variable Identifier or IT
-    if tok.classification in ("Variable Identifier", "Implicit Variable") or tok.lexeme == "IT" or isValidIdentifier(tok.lexeme):
-        return ("VAR", tok.lexeme), toks[1:]
 
     if tok.lexeme == "NOT":
         return parseNot(toks)
@@ -47,6 +38,9 @@ def parseExpression(toks):
         return parseInfiniteArity(toks)
     if tok.lexeme == "I IZ":
         return parseFunctionCall(toks)
+    #Variable Identifier or IT
+    if tok.classification in ("Variable Identifier", "Implicit Variable"):
+        return ("VAR", tok.lexeme), toks[1:]
 
     raise SyntaxErrorDetail(f"Unexpected token '{tok.lexeme}' in expression.", tok.line)
 
@@ -126,7 +120,7 @@ def parseInfiniteArity(toks):
 def parseFunctionCall(toks):
     tok = toks[0]
     curToks = toks[1:]
-    if not curToks or not isValidIdentifier(curToks[0].lexeme):
+    if not curToks or curToks[0].classification != "Function Identifier":
         raise SyntaxErrorDetail("Expected function identifier after 'I IZ'.", tok.line)
     funcName = curToks[0].lexeme
     curToks = curToks[1:]
