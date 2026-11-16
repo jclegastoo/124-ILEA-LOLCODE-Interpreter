@@ -86,5 +86,5 @@ multilineEndPattern = re.compile(r"(?<![A-Za-z0-9_])TLDR(?![A-Za-z0-9_])")
 stringPattern = re.compile(r'"[^"]*"')
 symbols = {
     "+": "Output Separator",
-    "!": "Newline Suppresor",
+    "!": "Newline Suppressor",
 }

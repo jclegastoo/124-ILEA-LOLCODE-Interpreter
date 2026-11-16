@@ -1,7 +1,8 @@
 from ..expressions import parseExpression
 from ..lexer import isValidIdentifier
 from ..tokens import SyntaxErrorDetail
-from .helpers import isType, expectNoExtraTokens, parseWholeExpression
+from .helpers import isType, expectNoExtraTokens, parseWholeExpression, expectVariable
+
 
 
 # CAN HAS STDIO?
@@ -80,6 +81,8 @@ def checkDeclaration(lineToks, lineNum, state):
     if varTok.lexeme in state.declaredVariables:
         raise SyntaxErrorDetail(f"Variable '{varTok.lexeme}' is already declared.", lineNum)
 
+    initExpr = None
+
     if len(lineToks) > 2:
         if lineToks[2].lexeme != "ITZ":
             raise SyntaxErrorDetail(f"Unexpected token '{lineToks[2].lexeme}' in variable declaration. Expected 'ITZ' or newline.", lineNum)
@@ -87,44 +90,56 @@ def checkDeclaration(lineToks, lineNum, state):
         if len(lineToks) == 3:
             raise SyntaxErrorDetail("Expected expression after 'ITZ'.", lineNum)
 
-        parseWholeExpression(lineToks[3:], lineNum, "after variable initialization")
+        initExpr = parseWholeExpression(lineToks[3:], lineNum, "after variable initialization")
 
     # Register variable after successful validation
     state.declaredVariables.add(varTok.lexeme)
+    return ("DECLARE", varTok.lexeme, initExpr)
 
 
 # <var> R <expr>
 def checkAssignment(lineToks, lineNum, state):
-    first = lineToks[0]
-    if first.classification != "Variable Identifier" and not isValidIdentifier(first.lexeme):
-        raise SyntaxErrorDetail(f"Invalid target '{first.lexeme}' for assignment 'R'.", lineNum)
+    expectVariable(lineToks[0], lineNum, "as target of assignment 'R'")
+
     if len(lineToks) == 2:
         raise SyntaxErrorDetail("Expected expression after 'R'.", lineNum)
-    parseWholeExpression(lineToks[2:], lineNum, "after assignment expression")
+    expr = parseWholeExpression(lineToks[2:], lineNum, "after assignment expression")
+    return ("ASSIGN", lineToks[0].lexeme, expr)
+
 
 
 # <var> IS NOW A <type>
 def checkRecast(lineToks, lineNum, state):
+    expectVariable(lineToks[0], lineNum, "before 'IS NOW A'")
     if len(lineToks) < 3:
         raise SyntaxErrorDetail("Expected type after 'IS NOW A'.", lineNum)
     if not isType(lineToks[2]):
         raise SyntaxErrorDetail(f"Invalid type '{lineToks[2].lexeme}' after 'IS NOW A'.", lineNum)
     if len(lineToks) > 3:
         raise SyntaxErrorDetail(f"Unexpected token '{lineToks[3].lexeme}' after type.", lineNum)
+    return ("RECAST", lineToks[0].lexeme, lineToks[2].lexeme)
 
 
-# VISIBLE <expr>+ [!]
+
+# VISIBLE <expr> [[+] <expr>]* [!]  ->  ("VISIBLE", [exprs], printNewline)
 def checkVisible(lineToks, lineNum, state):
-    if len(lineToks) < 2:
-        raise SyntaxErrorDetail("Expected expression after 'VISIBLE'.", lineNum)
     cur = lineToks[1:]
-    if cur[-1].lexeme == "!":
+    printNewline = True
+    if cur and cur[-1].classification == "Newline Suppressor":
         cur = cur[:-1]
-        if not cur:
-            raise SyntaxErrorDetail("Expected expression before '!' in 'VISIBLE'.", lineNum)
+        printNewline = False
+    if not cur:
+        raise SyntaxErrorDetail("Expected expression after 'VISIBLE'.", lineNum)
 
+    args = []
     while cur:
-        _, cur = parseExpression(cur)
+        expr, cur = parseExpression(cur)
+        args.append(expr)
+        if cur and cur[0].classification == "Output Separator":
+            cur = cur[1:]
+            if not cur:
+                raise SyntaxErrorDetail("Expected expression after '+' in 'VISIBLE'.", lineNum)
+    return ("VISIBLE", args, printNewline)
 
 
 # GIMMEH <var>
@@ -133,25 +148,29 @@ def checkGimmeh(lineToks, lineNum, state):
         raise SyntaxErrorDetail("Expected variable identifier after 'GIMMEH'.", lineNum)
     if len(lineToks) > 2:
         raise SyntaxErrorDetail(f"Unexpected token '{lineToks[2].lexeme}' after 'GIMMEH <var>'.", lineNum)
-    if lineToks[0].classification != "Variable Identifier" and not isValidIdentifier(lineToks[1].lexeme):
-        raise SyntaxErrorDetail(f"Invalid variable identifier '{lineToks[1].lexeme}'.", lineNum)
+    expectVariable(lineToks[1], lineNum, "after 'GIMMEH'")
+    return ("GIMMEH", lineToks[1].lexeme)
+
 
 
 # FOUND YR <expr>
 def checkFoundYr(lineToks, lineNum, state):
     if len(lineToks) < 2:
         raise SyntaxErrorDetail("Expected expression after 'FOUND YR'.", lineNum)
-    parseWholeExpression(lineToks[1:], lineNum, "after 'FOUND YR' expression")
+    return ("FOUND YR", parseWholeExpression(lineToks[1:], lineNum, "after 'FOUND YR' expression"))
+
 
 
 # GTFO
 def checkGtfo(lineToks, lineNum, state):
     expectNoExtraTokens(lineToks, "GTFO", lineNum)
+    return("GTFO",)
 
 
 # Standalone expression (evaluates to IT)
 def checkExpressionStatement(lineToks, lineNum, state):
     try:
-        parseWholeExpression(lineToks, lineNum, f"at line {lineNum}")
+        expr = parseWholeExpression(lineToks, lineNum, f"at line {lineNum}")
     except SyntaxErrorDetail:
         raise SyntaxErrorDetail(f"Invalid statement starting with '{lineToks[0].lexeme}'.", lineNum)
+    return ("EXPR", expr)

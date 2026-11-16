@@ -2,14 +2,6 @@ from .constants import commentClasses
 from .expressions import parseExpression
 import re
 
-# Literal token classifications and the LOLCODE type they hold
-literalTypes = {
-    "NUMBR Literal": "NUMBR",
-    "NUMBAR Literal": "NUMBAR",
-    "YARN Literal": "YARN",
-    "TROOF Literal": "TROOF",
-}
-
 class Symbol:
     def __init__(self, name, value=None, type="NOOB"):
         self.name = name
@@ -49,10 +41,10 @@ class SymbolTable:
 def evaluateExpression(tree, table):
     op = tree[0]
 
-    if op == "NUMBR Literal":
+    if op == "NUMBR":
         return int(tree[1]), "NUMBR"
 
-    if op == "NUMBAR Literal":
+    if op == "NUMBAR":
         return float(tree[1]), "NUMBAR"
 
     if op == "YARN":
@@ -88,6 +80,12 @@ def evaluateExpression(tree, table):
         if leftType not in ("NUMBR", "NUMBAR") or rightType not in ("NUMBR", "NUMBAR"):
             raise ValueError(f"Non-numeric operand in '{op}'.")
 
+        # Spec: NUMBAR if at least one operand is a NUMBAR, otherwise NUMBR
+        isNumbar = "NUMBAR" in (leftType, rightType)
+
+        if op in ("QUOSHUNT OF", "MOD OF") and right == 0:
+            raise ValueError(f"Division by zero in '{op}'.")
+
         if op == "SUM OF":
             result = left + right
         elif op == "DIFF OF":
@@ -95,7 +93,8 @@ def evaluateExpression(tree, table):
         elif op == "PRODUKT OF":
             result = left * right
         elif op == "QUOSHUNT OF":
-            result = left / right
+            # NUMBR / NUMBR truncates toward zero: 5/2 -> 2, -7/2 -> -3
+            result = left / right if isNumbar else int(left / right)
         elif op == "MOD OF":
             result = left % right
         elif op == "BIGGR OF":
@@ -103,8 +102,9 @@ def evaluateExpression(tree, table):
         elif op == "SMALLR OF":
             result = min(left, right)
 
-        resultType = "NUMBAR" if isinstance(result, float) else "NUMBR"
-        return result, resultType
+        if isNumbar:
+            return float(result), "NUMBAR"
+        return int(result), "NUMBR"
 
     # NOT operation
     if op == "NOT":
