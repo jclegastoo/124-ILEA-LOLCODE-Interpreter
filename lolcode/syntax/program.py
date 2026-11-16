@@ -145,9 +145,6 @@ def checkStatement(lineToks, lineNum, state):
     check = statementChecks.get(first.lexeme, statements.checkExpressionStatement)
     return check(lineToks, lineNum, state)
 
-
-
-
 def checkProgramDelimiters(execTokens):
     """Validates HAI ... KTHXBYE placement and returns (haiTok, kthxTok)."""
     if not execTokens:
@@ -223,7 +220,7 @@ def checkProgramDelimiters(execTokens):
 
     # Check for executable code after KTHXBYE
     for t in execTokens:
-        if t.line < haiTok.line:
+        if t.line > kthxTok.line:
             if t.line == saysoTok.line:
                 break
             else:
