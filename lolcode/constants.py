@@ -81,6 +81,10 @@ binaryOperators = {
 keywordPattern = re.compile(r"(?<![A-Za-z0-9_])(?:" + "|".join(re.escape(word) for word in sorted(keywords, key=len, reverse=True)) + r")(?![A-Za-z0-9_])")
 numberPattern = re.compile(r"-?[0-9]+(?:\.[0-9]+)?(?![A-Za-z0-9_.])")
 identifierPattern = re.compile(r"[A-Za-z][A-Za-z0-9_]*")
-wordPattern = re.compile(r'[^\s"!,]+')
+wordPattern = re.compile(r'[^\s"!,+]+')
 multilineEndPattern = re.compile(r"(?<![A-Za-z0-9_])TLDR(?![A-Za-z0-9_])")
 stringPattern = re.compile(r'"[^"]*"')
+symbols = {
+    "+": "Output Separator",
+    "!": "Newline Suppresor",
+}
