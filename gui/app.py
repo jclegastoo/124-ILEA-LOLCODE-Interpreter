@@ -129,8 +129,13 @@ class LolcodeApp:
             return
 
         # Fill the symbol table only for syntactically valid programs
-        for symbol in buildSymbolTable(tokens):
-            self.symbolTable.insert("", tk.END, values=(symbol.name, symbol.displayValue()))
+        try:
+            for symbol in buildSymbolTable(tokens):
+                self.symbolTable.insert("", tk.END, values=(symbol.name, symbol.displayValue()))
+        except (ValueError, NotImplementedError, ZeroDivisionError) as e:
+            self.statusBar.config(text=f"Status: Evaluation Error: {e}", fg="red")
+            messagebox.showerror("Evaluation Error", str(e))
+            return
 
     def showError(self, message, line):
         self.statusBar.config(text=f"Status: {message}", fg="red")

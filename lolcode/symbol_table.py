@@ -1,5 +1,6 @@
 from .constants import commentClasses
 from .expressions import parseExpression
+import re
 
 # Literal token classifications and the LOLCODE type they hold
 literalTypes = {
@@ -8,7 +9,6 @@ literalTypes = {
     "YARN Literal": "YARN",
     "TROOF Literal": "TROOF",
 }
-
 
 class Symbol:
     def __init__(self, name, value=None, type="NOOB"):
@@ -106,7 +106,89 @@ def evaluateExpression(tree, table):
         resultType = "NUMBAR" if isinstance(result, float) else "NUMBR"
         return result, resultType
 
+    # NOT operation
+    if op == "NOT":
+        value, valueType = evaluateExpression(tree[1], table)
+        result = not toTroof(value, valueType)
+        return ("WIN" if result else "FAIL"), "TROOF"
+
+    # Binary Boolean operations
+    if op in ("BOTH OF", "EITHER OF", "WON OF"):
+        left, leftType = evaluateExpression(tree[1], table)
+        right, rightType = evaluateExpression(tree[2], table)
+
+        left = toTroof(left, leftType)
+        right = toTroof(right, rightType)
+
+        if op == "BOTH OF":
+            result = left and right
+        elif op == "EITHER OF":
+            result = left or right
+        elif op == "WON OF":
+            result = left != right
+
+        return ("WIN" if result else "FAIL"), "TROOF"
+
+    # MAEK <expr> [A] <type>
+    if op == "MAEK":
+        value, valueType = evaluateExpression(tree[1], table)
+        targetType = tree[2]
+
+        # Convert to TROOF
+        if targetType == "TROOF":
+            result = toTroof(value, valueType)
+            return ("WIN" if result else "FAIL"), "TROOF"
+
+        # Convert to NUMBR or NUMBAR
+        if targetType in ("NUMBR", "NUMBAR"):
+
+            if valueType == "YARN":
+                if not re.fullmatch(r"-?\d+(\.\d+)?", value):
+                    raise ValueError(f"Cannot convert YARN '{value}' to {targetType}.")
+
+            if valueType == "NOOB":
+                value = 0
+            elif valueType == "TROOF":
+                value = 1 if toTroof(value, valueType) else 0
+
+            if targetType == "NUMBR":
+                return int(float(value)), "NUMBR"
+
+            return float(value), "NUMBAR"
+
+        # Convert to YARN
+        if targetType == "YARN":
+            if valueType == "NOOB":
+                return "", "YARN"
+
+            if valueType == "NUMBAR":
+                text = str(value)
+                if "." in text:
+                    whole, decimal = text.split(".", 1)
+                    text = whole + "." + decimal[:2]
+                return text, "YARN"
+
+            return str(value), "YARN"
+
+        # Convert to NOOB
+        if targetType == "NOOB":
+            return None, "NOOB"
+
+        raise ValueError(f"Invalid type '{targetType}' in MAEK.")
+
     raise NotImplementedError(f"Evaluation for '{op}' is not yet implemented.")
+
+def toTroof(value, valueType):
+    if valueType == "NOOB":
+        return False
+    if valueType == "TROOF":
+        return value == "WIN" if isinstance(value, str) else bool(value)
+    if valueType in ("NUMBR", "NUMBAR"):
+        return float(value) != 0
+    if valueType == "YARN":
+        return value != ""
+
+    raise ValueError(f"Cannot convert '{valueType}' to TROOF.")
 
 def buildSymbolTable(tokens):
     table = SymbolTable()
