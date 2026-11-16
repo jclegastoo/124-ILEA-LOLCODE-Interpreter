@@ -1,5 +1,5 @@
 from .lexer import tokenize, formatCode
-from .symbol_table import SymbolTable, buildSymbolTable
+from .evaluator import SymbolTable, buildSymbolTable
 from .syntax import checkSyntax
 from .tokens import Token, SyntaxErrorDetail
 
