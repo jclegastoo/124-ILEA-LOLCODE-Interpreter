@@ -1,4 +1,5 @@
 from .constants import commentClasses
+from .expressions import parseExpression
 
 # Literal token classifications and the LOLCODE type they hold
 literalTypes = {
@@ -45,13 +46,69 @@ class SymbolTable:
     def __iter__(self):
         return iter(self.symbols.values())
 
+def evaluateExpression(tree, table):
+    op = tree[0]
+
+    if op == "NUMBR Literal":
+        return int(tree[1]), "NUMBR"
+
+    if op == "NUMBAR Literal":
+        return float(tree[1]), "NUMBAR"
+
+    if op == "YARN":
+        return tree[1], "YARN"
+
+    if op == "TROOF":
+        return tree[1], "TROOF"
+
+    if op == "VAR":
+        symbol = table.lookup(tree[1])
+
+        if symbol is None:
+            raise ValueError(f"Undeclared variable '{tree[1]}'.")
+
+        if symbol.type == "NOOB":
+            raise ValueError(f"Variable '{tree[1]}' is uninitialized.")
+
+        value = symbol.value
+
+        if symbol.type == "NUMBR":
+            value = int(value)
+        elif symbol.type == "NUMBAR":
+            value = float(value)
+
+        return value, symbol.type
+
+    if op in ("SUM OF", "DIFF OF", "PRODUKT OF",
+              "QUOSHUNT OF", "MOD OF", "BIGGR OF", "SMALLR OF"):
+
+        left, leftType = evaluateExpression(tree[1], table)
+        right, rightType = evaluateExpression(tree[2], table)
+
+        if leftType not in ("NUMBR", "NUMBAR") or rightType not in ("NUMBR", "NUMBAR"):
+            raise ValueError(f"Non-numeric operand in '{op}'.")
+
+        if op == "SUM OF":
+            result = left + right
+        elif op == "DIFF OF":
+            result = left - right
+        elif op == "PRODUKT OF":
+            result = left * right
+        elif op == "QUOSHUNT OF":
+            result = left / right
+        elif op == "MOD OF":
+            result = left % right
+        elif op == "BIGGR OF":
+            result = max(left, right)
+        elif op == "SMALLR OF":
+            result = min(left, right)
+
+        resultType = "NUMBAR" if isinstance(result, float) else "NUMBR"
+        return result, resultType
+
+    raise NotImplementedError(f"Evaluation for '{op}' is not yet implemented.")
 
 def buildSymbolTable(tokens):
-    """Fills a SymbolTable from the I HAS A declarations in a syntax-checked token list.
-
-    Only literal initial values (I HAS A x ITZ 12) are filled in. Values that need
-    evaluating (expressions, R, GIMMEH) are left as NOOB for the semantic analyzer.
-    """
     table = SymbolTable()
 
     lines = {}
@@ -62,14 +119,17 @@ def buildSymbolTable(tokens):
     for lineToks in lines.values():
         if lineToks[0].lexeme != "I HAS A" or len(lineToks) < 2:
             continue
+
         name = lineToks[1].lexeme
         table.declare(name)
 
-        # I HAS A <var> ITZ <literal>, with the YARN's quotes already split off by the lexer
-        initToks = [t for t in lineToks[3:] if t.classification != "String Delimiter"]
-        if len(lineToks) > 2 and lineToks[2].lexeme == "ITZ" and len(initToks) == 1:
-            literal = initToks[0]
-            if literal.classification in literalTypes:
-                table.assign(name, literal.lexeme, literalTypes[literal.classification])
+        if len(lineToks) > 3 and lineToks[2].lexeme == "ITZ":
+            tree, remaining = parseExpression(lineToks[3:])
+
+            if remaining:
+                raise ValueError(f"Unexpected tokens in initialization of '{name}'.")
+
+            value, valueType = evaluateExpression(tree, table)
+            table.assign(name, value, valueType)
 
     return table

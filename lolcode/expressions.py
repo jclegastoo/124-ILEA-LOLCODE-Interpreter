@@ -48,7 +48,9 @@ def parseExpression(toks):
     if tok.lexeme == "I IZ":
         return parseFunctionCall(toks)
 
-    raise SyntaxErrorDetail(f"Unexpected token '{tok.lexeme}' in expression.", tok.line)
+    # Variable Identifier or IT
+    if tok.classification in ("Variable Identifier", "Implicit Variable") or tok.lexeme == "IT" or isValidIdentifier(tok.lexeme):
+        return ("VAR", tok.lexeme), toks[1:]
 
 
 # NOT <expr>
