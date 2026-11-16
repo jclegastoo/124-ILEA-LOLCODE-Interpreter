@@ -1,6 +1,6 @@
 from .constants import (
     keywords, types, keywordPattern, numberPattern, identifierPattern,
-    wordPattern, multilineEndPattern, stringPattern
+    wordPattern, multilineEndPattern, stringPattern, symbols
 )
 from .tokens import Token
 
@@ -66,6 +66,9 @@ def tokenize(code):
             if match:
                 word = match.group()
 
+                if word == "TLDR":
+                    lexErrors.append((f"Lexical Error at line {lineNum}: 'TLDR' without a matching 'OBTW'.", lineNum))
+
                 tokens.append(Token(word, keywords[word], lineNum))
                 position = match.end()
                 previous = word
@@ -78,6 +81,8 @@ def tokenize(code):
 
                 # Sets the multiline comment flag to true
                 if word == "OBTW":
+                    if line[:match.start()].strip() and not line[:match.start()].rstrip().endswith(","):
+                        lexErrors.append((f"Lexical Error at line {lineNum}: 'OBTW' must start on a new line or after a comma.", lineNum))
 
                     multilineComment = True
                     multilineStartLine = lineNum
@@ -96,6 +101,12 @@ def tokenize(code):
                     lexErrors.append((f"Lexical Error at line {lineNum}: Unclosed string literal.", lineNum))
                     tokens.append(Token('"', "Unrecognized Lexeme", lineNum))
                     position += 1
+                previous = ""
+                continue
+
+            if line[position] in symbols:
+                tokens.append(Token(line[position], symbols[line[position]], lineNum))
+                position += 1
                 previous = ""
                 continue
 
@@ -134,6 +145,6 @@ def tokenize(code):
             previous = ""
 
     if multilineComment:
-        lexErrors.append((f"Syntax Error: Unclosed multiline comment 'OBTW' starting at line {multilineStartLine} (missing 'TLDR').", multilineStartLine))
+        lexErrors.append((f"Lexical Error: Unclosed multiline comment 'OBTW' starting at line {multilineStartLine} (missing 'TLDR').", multilineStartLine))
 
     return tokens, lexErrors
