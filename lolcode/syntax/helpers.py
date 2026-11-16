@@ -30,6 +30,12 @@ def expectNoExtraTokens(lineToks, keyword, lineNum):
     if len(lineToks) > 1:
         raise SyntaxErrorDetail(f"Unexpected tokens after '{keyword}'.", lineNum)
 
+def expectVariable(tok, lineNum, where):
+    """Raises unless tok is a variable identifier or IT."""
+
+    if tok.classification not in ("Variable Identifier", "Implicit Variable"):
+        raise SyntaxErrorDetail(f"Invalid variable identifier '{tok.lexeme}' {where}.", lineNum)
+
 
 def parseWholeExpression(toks, lineNum, where):
     """Parses toks as exactly one expression; `where` describes it in the error message."""
