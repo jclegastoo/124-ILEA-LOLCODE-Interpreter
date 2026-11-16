@@ -65,6 +65,10 @@ def tokenize(code):
             match = keywordPattern.match(line, position)
             if match:
                 word = match.group()
+
+                if word == "TLDR":
+                    lexErrors.append((f"Syntax Error at line {lineNum}: 'TLDR' without a matching 'OBTW'.", lineNum))
+
                 tokens.append(Token(word, keywords[word], lineNum))
                 position = match.end()
                 previous = word
