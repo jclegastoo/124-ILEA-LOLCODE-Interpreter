@@ -2,8 +2,7 @@ import os
 import tkinter as tk
 from tkinter import ttk, filedialog, messagebox, font as tkfont
 
-from lolcode import tokenize, formatCode, checkSyntax, SyntaxErrorDetail
-from lolcode.evaluator import buildSymbolTable
+from lolcode import tokenize, formatCode, checkSyntax, buildSymbolTable, SyntaxErrorDetail
 
 
 class LolcodeApp:
@@ -149,13 +148,21 @@ class LolcodeApp:
         except SyntaxErrorDetail as e:
             self.showError(str(e), e.line)
             return
+        except Exception as e:
+            self.showError(str(e), None)
+            return
 
         # Fill the symbol table only for syntactically valid programs
         try:
             table = buildSymbolTable(tokens, on_output=self.consoleWrite, on_input=self.consoleRead)
             for symbol in table:
                 self.symbolTable.insert("", tk.END, values=(symbol.name, symbol.displayValue()))
+            self.statusBar.config(text="Status: Program executed successfully.", fg="green")
         except (ValueError, NotImplementedError, ZeroDivisionError) as e:
+            self.statusBar.config(text=f"Status: Evaluation Error: {e}", fg="red")
+            messagebox.showerror("Evaluation Error", str(e))
+            return
+        except Exception as e:
             self.statusBar.config(text=f"Status: Evaluation Error: {e}", fg="red")
             messagebox.showerror("Evaluation Error", str(e))
             return

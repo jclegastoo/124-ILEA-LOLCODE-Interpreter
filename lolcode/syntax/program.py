@@ -154,7 +154,7 @@ def checkProgramDelimiters(execTokens):
     # Locate HAI and KTHXBYE
     haiTokens = [t for t in execTokens if t.lexeme == "HAI"]
     kthxTokens = [t for t in execTokens if t.lexeme == "KTHXBYE"]
-    howizTokens = [t for t in execTokens if t.lexeme in "HOW IZ I"]
+    howizTokens = [t for t in execTokens if t.lexeme == "HOW IZ I"]
     saysoTokens = [t for t in execTokens if t.lexeme == "IF U SAY SO"]
 
 
@@ -180,8 +180,8 @@ def checkProgramDelimiters(execTokens):
 
     haiTok = haiTokens[0]
     kthxTok = kthxTokens[0]
-    howizTok = howizTokens[0]
-    saysoTok = saysoTokens[0]
+    howizTok = howizTokens[0] if howizTokens else None
+    saysoTok = saysoTokens[0] if saysoTokens else None
 
 
     if kthxTok.line < haiTok.line:
@@ -191,7 +191,7 @@ def checkProgramDelimiters(execTokens):
     # Check for executable code before HAI
     for t in execTokens:
         if t.line < haiTok.line:
-            if t.line == howizTok.line:
+            if howizTok and t.line >= howizTok.line:
                 break
             else:
                 raise SyntaxErrorDetail(f"Unexpected statement '{t.lexeme}' before 'HAI'.", t.line)
@@ -221,7 +221,7 @@ def checkProgramDelimiters(execTokens):
     # Check for executable code after KTHXBYE
     for t in execTokens:
         if t.line > kthxTok.line:
-            if t.line == saysoTok.line:
+            if (howizTok and t.line >= howizTok.line) or (saysoTok and t.line <= saysoTok.line):
                 break
             else:
                 raise SyntaxErrorDetail(f"Unexpected statement '{t.lexeme}' after closing '{kthxTok.lexeme}'.", t.line)

@@ -165,16 +165,16 @@ def evaluateExpression(tree, table):
     op = tree[0]
 
     # --- Literals ---
-    if op == "NUMBR Literal":
+    if op in ("NUMBR", "NUMBR Literal"):
         return int(tree[1]), "NUMBR"
 
-    if op == "NUMBAR Literal":
+    if op in ("NUMBAR", "NUMBAR Literal"):
         return float(tree[1]), "NUMBAR"
 
-    if op == "YARN":
+    if op in ("YARN", "YARN Literal"):
         return tree[1], "YARN"
 
-    if op == "TROOF":
+    if op in ("TROOF", "TROOF Literal"):
         return tree[1], "TROOF"
 
     # --- Variable Lookup ---
@@ -492,8 +492,8 @@ def executeStatements(lines, table, on_output=None, on_input=None):
         # Output statement: VISIBLE <expr>+ [!]
         if first.lexeme == "VISIBLE":
             cur = lineToks[1:]
-            newline = bool(cur) and cur[-1].lexeme == "!"
-            if newline:
+            suppress_newline = bool(cur) and cur[-1].lexeme == "!"
+            if suppress_newline:
                 cur = cur[:-1]
             output = ""
             while cur:
@@ -502,7 +502,7 @@ def executeStatements(lines, table, on_output=None, on_input=None):
                 # In LOLCODE 1.2, IT stores the result of the expression
                 table.assign("IT", val, valType)
                 output = output + castToYarn(val, valType)
-            if newline:
+            if not suppress_newline:
                 output = output + "\n"
             if on_output:
                 on_output(output)
@@ -526,7 +526,7 @@ def executeStatements(lines, table, on_output=None, on_input=None):
             condTruth = toTroof(itSym.value, itSym.type)
 
             if condTruth:
-                signal = executeStatements(blockInfo["yaRly"], table)
+                signal = executeStatements(blockInfo["yaRly"], table, on_output, on_input)
                 if signal == "BREAK":
                     return "BREAK"
             else:
@@ -538,14 +538,14 @@ def executeStatements(lines, table, on_output=None, on_input=None):
                     mVal, mType = evaluateExpression(exprTree, table)
                     table.assign("IT", mVal, mType)  # MEBBE expression sets IT
                     if toTroof(mVal, mType):
-                        signal = executeStatements(mebbeLines, table)
+                        signal = executeStatements(mebbeLines, table, on_output, on_input)
                         if signal == "BREAK":
                             return "BREAK"
                         executed = True
                         break
 
                 if not executed and blockInfo["noWai"] is not None:
-                    signal = executeStatements(blockInfo["noWai"], table)
+                    signal = executeStatements(blockInfo["noWai"], table, on_output, on_input)
                     if signal == "BREAK":
                         return "BREAK"
 
@@ -568,13 +568,13 @@ def executeStatements(lines, table, on_output=None, on_input=None):
                         matched = True
 
                 if matched:
-                    signal = executeStatements(caseLines, table)
+                    signal = executeStatements(caseLines, table, on_output, on_input)
                     if signal == "BREAK":
                         break
 
             # If no OMG case matched, execute the default OMGWTF case
             if not matched and blockInfo["default"] is not None:
-                executeStatements(blockInfo["default"], table)
+                executeStatements(blockInfo["default"], table, on_output, on_input)
 
             i = endIdx + 1
             continue
