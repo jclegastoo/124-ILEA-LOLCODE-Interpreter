@@ -2,12 +2,16 @@ from .constants import types, binaryOperators
 from .tokens import SyntaxErrorDetail
 
 
-def parseExpression(toks):
+def parseExpression(toks, isNested=False):
     """Parses one expression from the front of toks. Returns (tree, remainingToks)."""
     if not toks:
         raise SyntaxErrorDetail("Expected expression, but line ended unexpectedly.")
 
     tok = toks[0]
+
+    # Nested check for infinite-arity expressions
+    if tok.lexeme in ("ALL OF", "ANY OF", "SMOOSH") and isNested:
+        raise SyntaxErrorDetail(f"Nested '{tok.lexeme}' is not allowed.", tok.line)
 
     # YARN literal (with string delimiters or standalone)
     if tok.lexeme == '"':
@@ -29,15 +33,15 @@ def parseExpression(toks):
     
 
     if tok.lexeme == "NOT":
-        return parseNot(toks)
+        return parseNot(toks, isNested)
     if tok.lexeme in binaryOperators:
-        return parseBinary(toks)
+        return parseBinary(toks, isNested)
     if tok.lexeme == "MAEK":
-        return parseMaek(toks)
+        return parseMaek(toks, isNested)
     if tok.lexeme == "SMOOSH":
-        return parseSmoosh(toks)
+        return parseSmoosh(toks, isNested)
     if tok.lexeme in ("ALL OF", "ANY OF"):
-        return parseInfiniteArity(toks)
+        return parseInfiniteArity(toks, isNested)
     if tok.lexeme == "I IZ":
         return parseFunctionCall(toks)
     #Variable Identifier or IT
@@ -49,28 +53,28 @@ def parseExpression(toks):
 
 
 # NOT <expr>
-def parseNot(toks):
-    expr, rest = parseExpression(toks[1:])
+def parseNot(toks, isNested=False):
+    expr, rest = parseExpression(toks[1:], isNested=True)
     return ("NOT", expr), rest
 
 
 # <op> <expr> AN <expr>
-def parseBinary(toks):
+def parseBinary(toks, isNested=False):
     tok = toks[0]
     op = tok.lexeme
-    e1, rest1 = parseExpression(toks[1:])
+    e1, rest1 = parseExpression(toks[1:], isNested=True)
     if not rest1:
         raise SyntaxErrorDetail(f"'{op}' expects 2 operands separated by 'AN'.", tok.line)
     if rest1[0].lexeme != "AN":
         raise SyntaxErrorDetail(f"Expected 'AN' after first operand of '{op}', found '{rest1[0].lexeme}'.", rest1[0].line)
-    e2, rest2 = parseExpression(rest1[1:])
+    e2, rest2 = parseExpression(rest1[1:], isNested=True)
     return (op, e1, e2), rest2
 
 
 # MAEK <expr> [A] <type>
-def parseMaek(toks):
+def parseMaek(toks, isNested=False):
     tok = toks[0]
-    e, rest = parseExpression(toks[1:])
+    e, rest = parseExpression(toks[1:], isNested=True)
     if rest and rest[0].lexeme == "A":
         rest = rest[1:]
     if not rest:
@@ -82,10 +86,10 @@ def parseMaek(toks):
 
 
 # SMOOSH <expr> [AN <expr>]* [MKAY]
-def parseSmoosh(toks):
+def parseSmoosh(toks, isNested=False):
     curToks = toks[1:]
     args = []
-    e, curToks = parseExpression(curToks)
+    e, curToks = parseExpression(curToks, isNested=True)
     args.append(e)
     while curToks:
         if curToks[0].lexeme == "MKAY":
@@ -94,25 +98,27 @@ def parseSmoosh(toks):
         if curToks[0].lexeme == "AN":
             curToks = curToks[1:]
         try:
-            e, curToks = parseExpression(curToks)
+            e, curToks = parseExpression(curToks, isNested=True)
             args.append(e)
-        except SyntaxErrorDetail:
+        except SyntaxErrorDetail as err:
+            if "Nested " in str(err):
+                raise
             break
     return ("SMOOSH", args), curToks
 
 
 # ALL OF / ANY OF <expr> [AN <expr>]* MKAY
-def parseInfiniteArity(toks):
+def parseInfiniteArity(toks, isNested=False):
     tok = toks[0]
     op = tok.lexeme
     curToks = toks[1:]
     args = []
-    e, curToks = parseExpression(curToks)
+    e, curToks = parseExpression(curToks, isNested=True)
     args.append(e)
     while curToks and curToks[0].lexeme != "MKAY":
         if curToks[0].lexeme == "AN":
             curToks = curToks[1:]
-        e, curToks = parseExpression(curToks)
+        e, curToks = parseExpression(curToks, isNested=True)
         args.append(e)
     if not curToks or curToks[0].lexeme != "MKAY":
         raise SyntaxErrorDetail(f"Expected 'MKAY' to close '{op}'.", tok.line)

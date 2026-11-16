@@ -83,6 +83,8 @@ def checkOic(lineToks, lineNum, state):
 
 # IM IN YR <label> [UPPIN|NERFIN YR <var>] [TIL|WILE <expr>]
 def checkLoopStart(lineToks, lineNum, state):
+    if any(b[0] == 'LOOP' for b in state.blockStack):
+        raise SyntaxErrorDetail("Nested loops are not allowed.", lineNum)
     if len(lineToks) < 2:
         raise SyntaxErrorDetail("Expected loop label after 'IM IN YR'.", lineNum)
     label = lineToks[1].lexeme
