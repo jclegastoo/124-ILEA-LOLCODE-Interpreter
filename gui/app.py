@@ -149,12 +149,17 @@ class LolcodeApp:
         except SyntaxErrorDetail as e:
             self.showError(str(e), e.line)
             return
+        except Exception as e:
+            self.statusBar.config(text=f"Status: Syntax error: {e}", fg="red")
+            messagebox.showerror("Syntax Error", str(e))
+            return
 
         # Fill the symbol table only for syntactically valid programs
         try:
             table = buildSymbolTable(tokens, on_output=self.consoleWrite, on_input=self.consoleRead)
             for symbol in table:
                 self.symbolTable.insert("", tk.END, values=(symbol.name, symbol.displayValue()))
+            self.statusBar.config(text="Status: Execution complete.", fg="green")
         except (ValueError, NotImplementedError, ZeroDivisionError) as e:
             self.statusBar.config(text=f"Status: Evaluation Error: {e}", fg="red")
             messagebox.showerror("Evaluation Error", str(e))

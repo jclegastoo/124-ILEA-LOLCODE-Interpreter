@@ -626,4 +626,3 @@ def buildSymbolTable(tokens, on_output=None, on_input=None):
     executeStatements(bodyLines, table, on_output, on_input)
 
     return table
-
