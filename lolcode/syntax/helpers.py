@@ -9,6 +9,8 @@ class CheckerState:
         self.inWazzup = False
         self.wazzupLine = None
         self.hasWazzup = False
+        self.hasStdio = False
+        self.hasExecutedStatements = False
         # Entries are (blockType, startLine, data), e.g. ('LOOP', 4, {'label': 'x'})
         self.declaredVariables = set()
         self.blockStack = []

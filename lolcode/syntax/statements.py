@@ -4,6 +4,35 @@ from ..tokens import SyntaxErrorDetail
 from .helpers import isType, expectNoExtraTokens, parseWholeExpression
 
 
+# CAN HAS STDIO?
+def checkStdio(lineToks, lineNum, state):
+    if state.hasStdio:
+        raise SyntaxErrorDetail("Multiple 'CAN HAS STDIO?' statements are not allowed.", lineNum)
+    if state.hasWazzup or state.inWazzup:
+        raise SyntaxErrorDetail("'CAN HAS STDIO?' must appear before 'WAZZUP'.", lineNum)
+    if state.hasExecutedStatements:
+        raise SyntaxErrorDetail("'CAN HAS STDIO?' cannot appear after executable statements.", lineNum)
+
+    if lineToks[0].lexeme == "CAN HAS STDIO?":
+        expectNoExtraTokens(lineToks, "CAN HAS STDIO?", lineNum)
+    elif lineToks[0].lexeme == "CAN HAS":
+        if len(lineToks) < 2:
+            raise SyntaxErrorDetail("Expected library name after 'CAN HAS'.", lineNum)
+        libName = lineToks[1].lexeme
+        if libName == "STDIO?":
+            if len(lineToks) > 2:
+                raise SyntaxErrorDetail("Unexpected tokens after 'CAN HAS STDIO?'.", lineNum)
+        elif libName == "STDIO":
+            if len(lineToks) == 2 or lineToks[2].lexeme != "?":
+                raise SyntaxErrorDetail("Expected '?' after 'STDIO' in 'CAN HAS STDIO?'.", lineNum)
+            if len(lineToks) > 3:
+                raise SyntaxErrorDetail("Unexpected tokens after 'CAN HAS STDIO?'.", lineNum)
+        else:
+            raise SyntaxErrorDetail(f"Unknown library '{libName}'. Expected 'STDIO?'.", lineNum)
+
+    state.hasStdio = True
+
+
 # WAZZUP
 def checkWazzup(lineToks, lineNum, state):
     if state.inWazzup:
@@ -11,6 +40,9 @@ def checkWazzup(lineToks, lineNum, state):
 
     if state.hasWazzup:
         raise SyntaxErrorDetail("Multiple 'WAZZUP' sections are not allowed.", lineNum)
+
+    if state.hasExecutedStatements:
+        raise SyntaxErrorDetail("'WAZZUP' cannot appear after executable statements.", lineNum)
 
     expectNoExtraTokens(lineToks, "WAZZUP", lineNum)
 

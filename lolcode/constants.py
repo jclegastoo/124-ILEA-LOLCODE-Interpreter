@@ -4,6 +4,8 @@ import re
 keywords = {
     "HAI": "Code Delimiter",
     "KTHXBYE": "Code Delimiter",
+    "CAN HAS STDIO?": "Package Delimiter",
+    "CAN HAS": "Package Delimiter",
     "WAZZUP": "Variable Declaration Start",
     "BUHBYE": "Variable Declaration End",
     "I HAS A": "Variable Declaration",

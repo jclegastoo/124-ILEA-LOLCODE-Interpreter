@@ -24,8 +24,56 @@ statementChecks = {
 }
 
 
+def checkComments(tokens):
+    """Ensures multi-line comments (OBTW...TLDR) are well-formed and do not share lines with code."""
+    linesWithCode = set()
+    linesWithObtw = set()
+    linesWithTldr = set()
+    obtwCount = 0
+    firstObtwLine = None
+
+    for t in tokens:
+        if t.classification not in commentClasses:
+            linesWithCode.add(t.line)
+        elif t.lexeme == "OBTW":
+            linesWithObtw.add(t.line)
+            obtwCount += 1
+            if firstObtwLine is None:
+                firstObtwLine = t.line
+        elif t.lexeme == "TLDR":
+            linesWithTldr.add(t.line)
+            if obtwCount == 0:
+                raise SyntaxErrorDetail("Found closing comment delimiter 'TLDR' without matching 'OBTW'.", t.line)
+            obtwCount -= 1
+            if obtwCount == 0:
+                firstObtwLine = None
+
+    # Check if OBTW shares a line with code
+    obtwWithCode = linesWithObtw & linesWithCode
+    if obtwWithCode:
+        lineNum = min(obtwWithCode)
+        raise SyntaxErrorDetail("Multi-line comment 'OBTW' cannot appear on the same line as code.", lineNum)
+
+    # Check if TLDR shares a line with code
+    tldrWithCode = linesWithTldr & linesWithCode
+    if tldrWithCode:
+        lineNum = min(tldrWithCode)
+        raise SyntaxErrorDetail("Multi-line comment 'TLDR' cannot appear on the same line as code.", lineNum)
+
+    # Check if OBTW and TLDR are on the same line
+    sameLineBoth = linesWithObtw & linesWithTldr
+    if sameLineBoth:
+        lineNum = min(sameLineBoth)
+        raise SyntaxErrorDetail("Multi-line comment 'OBTW' and 'TLDR' cannot appear on the same line.", lineNum)
+
+    if obtwCount > 0:
+        raise SyntaxErrorDetail(f"Unclosed multiline comment 'OBTW' starting at line {firstObtwLine} (missing 'TLDR').", firstObtwLine)
+
+
 def checkSyntax(tokens):
     """Raises SyntaxErrorDetail on the first syntax error; returns True if the program is valid."""
+    checkComments(tokens)
+
     execTokens = [t for t in tokens if t.classification not in commentClasses]
 
     haiTok, kthxTok = checkProgramDelimiters(execTokens)
@@ -41,6 +89,10 @@ def checkSyntax(tokens):
 def checkStatement(lineToks, lineNum, state):
     first = lineToks[0]
 
+    # CAN HAS STDIO?
+    if first.lexeme in ("CAN HAS STDIO?", "CAN HAS"):
+        return statements.checkStdio(lineToks, lineNum, state)
+
     # WAZZUP ... BUHBYE block
     if first.lexeme == "WAZZUP":
         return statements.checkWazzup(lineToks, lineNum, state)
@@ -51,6 +103,15 @@ def checkStatement(lineToks, lineNum, state):
 
     if first.lexeme == "I HAS A":
         return statements.checkDeclaration(lineToks, lineNum, state)
+
+    # Block-specific checks for statements inside O RLY? and WTF?
+    if state.topBlockType() == 'O RLY?' and state.topBlockData()['stage'] == 'start' and first.lexeme != "YA RLY":
+        raise SyntaxErrorDetail(f"Expected 'YA RLY' after 'O RLY?', found '{first.lexeme}'.", lineNum)
+    if state.topBlockType() == 'WTF?' and state.topBlockData()['stage'] == 'start' and first.lexeme not in ("OMG", "OMGWTF"):
+        raise SyntaxErrorDetail(f"Expected 'OMG' or 'OMGWTF' in switch block, found '{first.lexeme}'.", lineNum)
+
+    # Mark that an executable statement has been encountered
+    state.hasExecutedStatements = True
 
     # Statements identified by their second token
     if len(lineToks) >= 2 and lineToks[1].lexeme == "R":

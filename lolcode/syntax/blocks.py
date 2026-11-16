@@ -23,8 +23,10 @@ def checkYaRly(lineToks, lineNum, state):
 def checkMebbe(lineToks, lineNum, state):
     if state.topBlockType() != 'O RLY?':
         raise SyntaxErrorDetail("'MEBBE' found without matching 'O RLY?'.", lineNum)
-    if state.topBlockData()['stage'] not in ('ya_rly', 'mebbe'):
-        raise SyntaxErrorDetail("'MEBBE' cannot appear before 'YA RLY' or after 'NO WAI'.", lineNum)
+    if state.topBlockData()['stage'] == 'start':
+        raise SyntaxErrorDetail("'MEBBE' cannot appear before 'YA RLY'.", lineNum)
+    if state.topBlockData()['stage'] == 'no_wai':
+        raise SyntaxErrorDetail("'MEBBE' cannot appear after 'NO WAI'.", lineNum)
     if len(lineToks) < 2:
         raise SyntaxErrorDetail("Expected expression after 'MEBBE'.", lineNum)
     parseWholeExpression(lineToks[1:], lineNum, "after 'MEBBE' expression")
@@ -72,6 +74,8 @@ def checkOic(lineToks, lineNum, state):
     expectNoExtraTokens(lineToks, "OIC", lineNum)
     if state.topBlockType() not in ('O RLY?', 'WTF?'):
         raise SyntaxErrorDetail("'OIC' found without matching 'O RLY?' or 'WTF?'.", lineNum)
+    if state.topBlockType() == 'O RLY?' and state.topBlockData()['stage'] == 'start':
+        raise SyntaxErrorDetail("Conditional block 'O RLY?' is missing 'YA RLY'.", lineNum)
     state.blockStack.pop()
 
 
