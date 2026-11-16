@@ -81,6 +81,9 @@ def tokenize(code):
 
                 # Sets the multiline comment flag to true
                 if word == "OBTW":
+                    if line[:match.start()].strip() and not line[:match.start()].rstrip().endswith(","):
+                        lexErrors.append((f"Syntax Error at line {lineNum}: 'OBTW' must start on a new line or after a comma.", lineNum))
+
                     multilineComment = True
                     multilineStartLine = lineNum
                 continue
