@@ -26,6 +26,10 @@ def parseExpression(toks):
     if tok.classification == "TROOF Literal":
         return ("TROOF", tok.lexeme), toks[1:]
 
+    # Type Literal
+    if tok.classification == "Type Literal" or tok.lexeme in types:
+        return ("TYPE", tok.lexeme), toks[1:]
+
     if tok.lexeme == "NOT":
         return parseNot(toks)
     if tok.lexeme in binaryOperators:
@@ -42,7 +46,9 @@ def parseExpression(toks):
     if tok.classification in ("Variable Identifier", "Implicit Variable"):
         return ("VAR", tok.lexeme), toks[1:]
 
-    raise SyntaxErrorDetail(f"Unexpected token '{tok.lexeme}' in expression.", tok.line)
+    # Variable Identifier or IT
+    if tok.classification in ("Variable Identifier", "Implicit Variable") or tok.lexeme == "IT" or isValidIdentifier(tok.lexeme):
+        return ("VAR", tok.lexeme), toks[1:]
 
 
 # NOT <expr>
