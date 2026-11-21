@@ -157,18 +157,63 @@ def isEqual(leftVal, leftType, rightVal, rightType):
 # 2. EXPRESSION EVALUATION
 # =============================================================================
 
-def evaluateExpression(tree, table):
+def evaluateExpression(tree, table, functions=None, on_output=None, on_input=None):
     """
     Recursively evaluates an AST expression node produced by parseExpression.
     Returns a tuple of (evaluatedValue, evaluatedType).
     """
     op = tree[0]
 
+
+    # Function call used as an expression
+    if op == "CALL":
+        functionName = tree[1]
+        argTrees = tree[2]
+
+        if functions is None or functionName not in functions:
+            raise ValueError(
+                f"Undefined function '{functionName}'."
+            )
+
+        params, functionBody = functions[functionName]
+
+        arguments = [
+            evaluateExpression(
+                arg, table, functions, on_output, on_input
+            )
+            for arg in argTrees
+        ]
+
+        if len(arguments) != len(params):
+            raise ValueError(
+                f"Function '{functionName}' expects "
+                f"{len(params)} arguments, got {len(arguments)}."
+            )
+
+        localTable = SymbolTable()
+
+        for paramName, (val, valType) in zip(params, arguments):
+            localTable.declare(paramName)
+            localTable.assign(paramName, val, valType)
+
+        result = executeStatements(
+            functionBody,
+            localTable,
+            on_output,
+            on_input,
+            functions
+        )
+
+        if isinstance(result, tuple) and result[0] == "RETURN":
+            return result[1], result[2]
+
+        return None, "NOOB"
+
     # --- Literals ---
-    if op == "NUMBR Literal":
+    if op == "NUMBR":
         return int(tree[1]), "NUMBR"
 
-    if op == "NUMBAR Literal":
+    if op == "NUMBAR":
         return float(tree[1]), "NUMBAR"
 
     if op == "YARN":
@@ -201,8 +246,8 @@ def evaluateExpression(tree, table):
     if op in ("SUM OF", "DIFF OF", "PRODUKT OF",
               "QUOSHUNT OF", "MOD OF", "BIGGR OF", "SMALLR OF"):
 
-        leftRaw, leftTypeRaw = evaluateExpression(tree[1], table)
-        rightRaw, rightTypeRaw = evaluateExpression(tree[2], table)
+        leftRaw, leftTypeRaw = evaluateExpression(tree[1], table, functions, on_output, on_input)
+        rightRaw, rightTypeRaw = evaluateExpression(tree[2], table, functions, on_output, on_input)
 
         left, leftType = toNumeric(leftRaw, leftTypeRaw, op)
         right, rightType = toNumeric(rightRaw, rightTypeRaw, op)
@@ -252,14 +297,14 @@ def evaluateExpression(tree, table):
     # --- Boolean Operators ---
     # Unary NOT
     if op == "NOT":
-        val, valType = evaluateExpression(tree[1], table)
+        val, valType = evaluateExpression(tree[1], table, functions, on_output, on_input)
         res = not toTroof(val, valType)
         return ("WIN" if res else "FAIL"), "TROOF"
 
     # Binary Boolean: BOTH OF (AND), EITHER OF (OR), WON OF (XOR)
     if op in ("BOTH OF", "EITHER OF", "WON OF"):
-        left, leftType = evaluateExpression(tree[1], table)
-        right, rightType = evaluateExpression(tree[2], table)
+        left, leftType = evaluateExpression(tree[1], table, functions, on_output, on_input)
+        right, rightType = evaluateExpression(tree[2], table, functions, on_output, on_input)
 
         lBool = toTroof(left, leftType)
         rBool = toTroof(right, rightType)
@@ -278,13 +323,13 @@ def evaluateExpression(tree, table):
         args = tree[1]
         if op == "ALL OF":
             for arg in args:
-                val, vtype = evaluateExpression(arg, table)
+                val, vtype = evaluateExpression(arg, table, functions, on_output, on_input)
                 if not toTroof(val, vtype):
                     return "FAIL", "TROOF"
             return "WIN", "TROOF"
         else:  # ANY OF
             for arg in args:
-                val, vtype = evaluateExpression(arg, table)
+                val, vtype = evaluateExpression(arg, table, functions, on_output, on_input)
                 if toTroof(val, vtype):
                     return "WIN", "TROOF"
             return "FAIL", "TROOF"
@@ -292,8 +337,8 @@ def evaluateExpression(tree, table):
     # --- Comparison Operators ---
     # BOTH SAEM (==), DIFFRINT (!=)
     if op in ("BOTH SAEM", "DIFFRINT"):
-        left, leftType = evaluateExpression(tree[1], table)
-        right, rightType = evaluateExpression(tree[2], table)
+        left, leftType = evaluateExpression(tree[1], table, functions, on_output, on_input)
+        right, rightType = evaluateExpression(tree[2], table, functions, on_output, on_input)
 
         eq = isEqual(left, leftType, right, rightType)
         res = eq if op == "BOTH SAEM" else (not eq)
@@ -301,7 +346,7 @@ def evaluateExpression(tree, table):
 
     # --- Typecasting: MAEK <expr> [A] <type> ---
     if op == "MAEK":
-        val, valType = evaluateExpression(tree[1], table)
+        val, valType = evaluateExpression(tree[1], table, functions, on_output, on_input)
         targetType = tree[2]
         return castValue(val, valType, targetType)
 
@@ -309,7 +354,7 @@ def evaluateExpression(tree, table):
     if op == "SMOOSH":
         parts = []
         for arg in tree[1]:
-            val, vtype = evaluateExpression(arg, table)
+            val, vtype = evaluateExpression(arg, table, functions, on_output, on_input)
             parts.append(castToYarn(val, vtype))
         return "".join(parts), "YARN"
 
@@ -427,16 +472,119 @@ def parseWtfBlock(lines, startIdx):
     raise ValueError("Unclosed switch block 'WTF?' (missing 'OIC').")
 
 
+def collectFunctions(lines):
+    functions = {}
+    remainingLines = []
+    i = 0
+    inWazzup = False
+    inProgram = False
+
+    while i < len(lines):
+        lineNum, toks = lines[i]
+        firstLex = toks[0].lexeme
+
+        if firstLex == "HAI":
+            inProgram = True
+
+        elif firstLex == "KTHXBYE":
+            inProgram = False
+
+        # Track WAZZUP / BUHBYE
+        if firstLex == "WAZZUP":
+            inWazzup = True
+            remainingLines.append(lines[i])
+            i += 1
+            continue
+
+        if firstLex == "BUHBYE":
+            inWazzup = False
+            remainingLines.append(lines[i])
+            i += 1
+            continue
+
+        if firstLex != "HOW IZ I":
+            remainingLines.append(lines[i])
+            i += 1
+            continue
+
+        # Function declarations must be inside WAZZUP
+        if inProgram and not inWazzup:
+            raise ValueError(
+                f"Function declaration outside WAZZUP/BUHBYE "
+                f"at line {lineNum}."
+            )
+
+        if len(toks) < 2:
+            raise ValueError("Missing function name.")
+
+        functionName = toks[1].lexeme
+        params = []
+        header = [t.lexeme for t in toks[2:]]
+        pos = 0
+
+        # Parse YR a AN YR b ...
+        while pos < len(header):
+            if header[pos] != "YR" or pos + 1 >= len(header):
+                raise ValueError("Invalid function parameters.")
+
+            params.append(header[pos + 1])
+            pos += 2
+
+            if pos < len(header):
+                if header[pos] != "AN":
+                    raise ValueError("Expected AN between parameters.")
+                pos += 1
+
+        if len(params) != len(set(params)):
+            raise ValueError("Duplicate function parameter.")
+
+        if functionName in functions:
+            raise ValueError(
+                f"Function '{functionName}' already defined."
+            )
+
+        # Collect body without executing it
+        functionBody = []
+        i += 1
+
+        while i < len(lines):
+            current = lines[i][1][0].lexeme
+
+            if current == "IF U SAY SO":
+                break
+
+            if current == "HOW IZ I":
+                raise ValueError(
+                    "Nested function definitions are not supported."
+                )
+
+            functionBody.append(lines[i])
+            i += 1
+
+        if i >= len(lines):
+            raise ValueError(
+                f"Function '{functionName}' missing IF U SAY SO."
+            )
+
+        functions[functionName] = (params, functionBody)
+        i += 1
+
+    return remainingLines, functions
+
 # =============================================================================
 # 4. STATEMENT & PROGRAM EXECUTION
 # =============================================================================
 
-def executeStatements(lines, table, on_output=None, on_input=None):
+def executeStatements(lines, table, on_output=None, on_input=None, functions=None):
     """
     Executes a sequence of (lineNum, lineToks) statements against the SymbolTable.
     Handles assignments, declarations, recasting, conditionals, switches, and expressions.
     Returns 'BREAK' if GTFO was executed (to break out of switch/case), else None.
     """
+
+    if functions is None:
+        functions = {}
+    
     i = 0
     while i < len(lines):
         lineNum, lineToks = lines[i]
@@ -447,9 +595,228 @@ def executeStatements(lines, table, on_output=None, on_input=None):
             i += 1
             continue
 
+        # Function return: FOUND YR <expression>
+        if first.lexeme == "FOUND YR":
+            exprTree, remaining = parseExpression(lineToks[1:])
+
+            if remaining:
+                raise ValueError("Invalid function return expression.")
+
+            val, valType = evaluateExpression(
+                exprTree, table, functions, on_output, on_input
+            )
+
+            return ("RETURN", val, valType)
+
         # Break keyword: GTFO
         if first.lexeme == "GTFO":
             return "BREAK"
+
+        
+        # Function Call: I IZ <name> [YR arg ...] MKAY
+        # Function Call: I IZ <name> [YR arg ...] MKAY
+        if first.lexeme == "I IZ" or ( len(lineToks) > 1 and first.lexeme == "I" and lineToks[1].lexeme == "IZ"):
+            if len(lineToks) < 3 or (
+                first.lexeme == "I" and len(lineToks) < 4
+            ):
+                raise ValueError("Incomplete function call.")
+
+            namePos = 1 if first.lexeme == "I IZ" else 2
+            functionName = lineToks[namePos].lexeme
+
+            if functionName not in functions:
+                raise ValueError(
+                    f"Undefined function '{functionName}'."
+                )
+
+            if lineToks[-1].lexeme != "MKAY":
+                raise ValueError("Function call missing MKAY.")
+
+            params, functionBody = functions[functionName]
+
+            # Evaluate arguments in the caller's scope
+            argTokens = lineToks[namePos + 1:-1]
+            arguments = []
+
+            while argTokens:
+                if argTokens[0].lexeme != "YR":
+                    raise ValueError(
+                        "Expected YR before function argument."
+                    )
+
+                exprTree, remaining = parseExpression(argTokens[1:])
+                val, valType = evaluateExpression(exprTree, table, functions, on_output, on_input)
+                arguments.append((val, valType))
+                argTokens = remaining
+
+                if argTokens:
+                    if argTokens[0].lexeme != "AN":
+                        raise ValueError(
+                            "Expected AN between function arguments."
+                        )
+                    argTokens = argTokens[1:]
+
+            # Check parameter count
+            if len(arguments) != len(params):
+                raise ValueError(
+                    f"Function '{functionName}' expects "
+                    f"{len(params)} arguments, "
+                    f"got {len(arguments)}."
+                )
+
+            # Create local symbol table
+            localTable = SymbolTable()
+
+            # Bind arguments to parameters
+            for paramName, (val, valType) in zip(params, arguments):
+                localTable.declare(paramName)
+                localTable.assign(paramName, val, valType)
+
+            # Execute function body
+            executeStatements(
+                functionBody,
+                localTable,
+                on_output,
+                on_input,
+                functions
+            )
+
+            i += 1
+            continue
+
+        # Loop Statement
+        if first.lexeme == "IM IN YR":
+            if len(lineToks) < 5:
+                raise ValueError("Incomplete loop statement.")
+
+            loopName = lineToks[1].lexeme
+
+            # Parse UPPIN YR / NERFIN YR
+            operation = lineToks[2].lexeme
+
+            if operation not in ("UPPIN", "NERFIN"):
+                raise ValueError("Invalid loop operation.")
+
+            if lineToks[3].lexeme != "YR":
+                raise ValueError("Expected YR after loop operation.")
+
+            loopVar = lineToks[4].lexeme
+
+            if not table.isDeclared(loopVar):
+                raise ValueError(
+                    f"Undeclared loop variable '{loopVar}'."
+                )
+
+            # Parse optional TIL / WILE condition
+            conditionType = None
+            conditionTokens = []
+
+            if len(lineToks) > 5:
+                conditionType = lineToks[5].lexeme
+
+                if conditionType not in ("TIL", "WILE"):
+                    raise ValueError("Invalid loop condition.")
+
+                conditionTokens = lineToks[6:]
+
+                if not conditionTokens:
+                    raise ValueError("Missing loop condition.")
+
+            # Find matching IM OUTTA YR
+            endIdx = None
+
+            for j in range(i + 1, len(lines)):
+                currentToks = lines[j][1]
+                currentLex = currentToks[0].lexeme
+
+                if currentLex == "IM IN YR":
+                    raise ValueError(
+                        "Nested loops are not supported yet."
+                    )
+
+                if currentLex == "IM OUTTA YR":
+                    endIdx = j
+                    break
+
+            if endIdx is None:
+                raise ValueError(
+                    f"Missing IM OUTTA YR for loop '{loopName}'."
+                )
+
+            # Validate closing loop name
+            closingToks = lines[endIdx][1]
+
+            if len(closingToks) != 2:
+                raise ValueError("Invalid loop closing statement.")
+
+            closingName = closingToks[1].lexeme
+
+            if closingName != loopName:
+                raise ValueError(
+                    f"Loop '{loopName}' closed with '{closingName}'."
+                )
+
+            bodyLines = lines[i + 1:endIdx]
+
+            # Execute loop
+            while True:
+
+                # Check optional TIL / WILE condition
+                if conditionType is not None:
+                    exprTree, remaining = parseExpression(
+                        conditionTokens
+                    )
+
+                    if remaining:
+                        raise ValueError(
+                            "Invalid loop condition expression."
+                        )
+
+                    condVal, condType = evaluateExpression(
+                        exprTree, table, functions, on_output, on_input
+                    )
+
+                    condTruth = toTroof(condVal, condType)
+
+                    if conditionType == "TIL" and condTruth:
+                        break
+
+                    if conditionType == "WILE" and not condTruth:
+                        break
+
+                # Execute statements inside loop
+                signal = executeStatements(
+                    bodyLines, table, on_output, on_input, functions
+                )
+
+                # GTFO terminates the loop
+                if signal == "BREAK":
+                    break
+
+                # Increment or decrement loop variable
+                sym = table.lookup(loopVar)
+
+                num, numType = toNumeric(
+                    sym.value, sym.type, operation
+                )
+
+                if operation == "UPPIN":
+                    num += 1
+                else:
+                    num -= 1
+
+                table.assign(loopVar, num, numType)
+
+            # Continue after closing loop
+            i = endIdx + 1
+            continue
+
+        # Closing loop without matching opening
+        if first.lexeme == "IM OUTTA YR":
+            raise ValueError(
+                "IM OUTTA YR without matching IM IN YR."
+            )
+
 
         # Variable Declaration: I HAS A <var> [ITZ <expr>]
         if first.lexeme == "I HAS A":
@@ -459,7 +826,7 @@ def executeStatements(lines, table, on_output=None, on_input=None):
                 exprTree, remaining = parseExpression(lineToks[3:])
                 if remaining:
                     raise ValueError(f"Unexpected tokens after initialization of '{varName}'.")
-                val, valType = evaluateExpression(exprTree, table)
+                val, valType = evaluateExpression(exprTree, table, functions, on_output, on_input )
                 table.assign(varName, val, valType)
             i += 1
             continue
@@ -472,7 +839,7 @@ def executeStatements(lines, table, on_output=None, on_input=None):
             exprTree, remaining = parseExpression(lineToks[2:])
             if remaining:
                 raise ValueError(f"Unexpected tokens after assignment expression for '{varName}'.")
-            val, valType = evaluateExpression(exprTree, table)
+            val, valType = evaluateExpression(exprTree, table, functions, on_output, on_input)
             table.assign(varName, val, valType)
             i += 1
             continue
@@ -492,17 +859,16 @@ def executeStatements(lines, table, on_output=None, on_input=None):
         # Output statement: VISIBLE <expr>+ [!]
         if first.lexeme == "VISIBLE":
             cur = lineToks[1:]
-            newline = bool(cur) and cur[-1].lexeme == "!"
-            if newline:
+            suppress_newline = bool(cur) and cur[-1].lexeme == "!"
+            if suppress_newline:
                 cur = cur[:-1]
             output = ""
             while cur:
                 exprTree, cur = parseExpression(cur)
-                val, valType = evaluateExpression(exprTree, table)
-                # In LOLCODE 1.2, IT stores the result of the expression
+                val, valType = evaluateExpression(exprTree, table, functions, on_output, on_input)
                 table.assign("IT", val, valType)
                 output = output + castToYarn(val, valType)
-            if newline:
+            if not suppress_newline:
                 output = output + "\n"
             if on_output:
                 on_output(output)
@@ -526,7 +892,7 @@ def executeStatements(lines, table, on_output=None, on_input=None):
             condTruth = toTroof(itSym.value, itSym.type)
 
             if condTruth:
-                signal = executeStatements(blockInfo["yaRly"], table)
+                signal = executeStatements(blockInfo["yaRly"], table, on_output, on_input, functions)
                 if signal == "BREAK":
                     return "BREAK"
             else:
@@ -535,17 +901,17 @@ def executeStatements(lines, table, on_output=None, on_input=None):
                     exprTree, remaining = parseExpression(mebbeExprToks)
                     if remaining:
                         raise ValueError(f"Unexpected tokens after 'MEBBE' expression at line {lineNum}.")
-                    mVal, mType = evaluateExpression(exprTree, table)
+                    mVal, mType = evaluateExpression(exprTree, table, functions, on_output, on_input)
                     table.assign("IT", mVal, mType)  # MEBBE expression sets IT
                     if toTroof(mVal, mType):
-                        signal = executeStatements(mebbeLines, table)
+                        signal = executeStatements(mebbeLines, table, on_output, on_input, functions)
                         if signal == "BREAK":
                             return "BREAK"
                         executed = True
                         break
 
                 if not executed and blockInfo["noWai"] is not None:
-                    signal = executeStatements(blockInfo["noWai"], table)
+                    signal = executeStatements(blockInfo["noWai"], table, on_output, on_input, functions)
                     if signal == "BREAK":
                         return "BREAK"
 
@@ -563,18 +929,18 @@ def executeStatements(lines, table, on_output=None, on_input=None):
                     cTree, remaining = parseExpression(caseValToks)
                     if remaining:
                         raise ValueError(f"Unexpected tokens after 'OMG' value at line {lineNum}.")
-                    cVal, cType = evaluateExpression(cTree, table)
-                    if isEqual(itSym.value, itSym.type, cVal, cType):
+                    cVal, cType = evaluateExpression(cTree, table, functions, on_output, on_input)
+                    if isEqual(itSym.value, itSym.type, cVal, cType):   
                         matched = True
 
                 if matched:
-                    signal = executeStatements(caseLines, table)
+                    signal = executeStatements(caseLines, table, on_output, on_input, functions)
                     if signal == "BREAK":
                         break
 
             # If no OMG case matched, execute the default OMGWTF case
             if not matched and blockInfo["default"] is not None:
-                executeStatements(blockInfo["default"], table)
+                executeStatements(blockInfo["default"], table, on_output, on_input, functions)
 
             i = endIdx + 1
             continue
@@ -583,7 +949,7 @@ def executeStatements(lines, table, on_output=None, on_input=None):
         try:
             exprTree, remaining = parseExpression(lineToks)
             if not remaining:
-                val, valType = evaluateExpression(exprTree, table)
+                val, valType = evaluateExpression(exprTree, table, functions, on_output, on_input)
                 table.assign("IT", val, valType)
                 i += 1
                 continue
@@ -595,34 +961,46 @@ def executeStatements(lines, table, on_output=None, on_input=None):
     return None
 
 
+
 def buildSymbolTable(tokens, on_output=None, on_input=None):
-    """
-    Executes the LOLCODE program represented by tokens and returns the populated SymbolTable.
-    Executes declarations, assignments, arithmetic, boolean, comparisons, typecasting,
-    and control statements (O RLY? / WTF?).
-    """
     table = SymbolTable()
 
-    execTokens = [t for t in tokens if t.classification not in commentClasses]
+    execTokens = [
+        t for t in tokens
+        if t.classification not in commentClasses
+    ]
 
-    # Find HAI and KTHXBYE boundaries if present
+    # Find program boundaries
     startLine = None
     endLine = None
+
     for t in execTokens:
         if t.lexeme == "HAI" and startLine is None:
             startLine = t.line
         elif t.lexeme == "KTHXBYE":
             endLine = t.line
 
+    # Group all tokens by line, including outside HAI
     linesDict = {}
-    for t in execTokens:
-        if startLine is not None and endLine is not None:
-            if startLine < t.line < endLine:
-                linesDict.setdefault(t.line, []).append(t)
-        else:
-            linesDict.setdefault(t.line, []).append(t)
 
-    bodyLines = sorted(linesDict.items())
-    executeStatements(bodyLines, table, on_output, on_input)
+    for t in execTokens:
+        linesDict.setdefault(t.line, []).append(t)
+
+    allLines = sorted(linesDict.items())
+
+    # Register functions before running the program
+    remainingLines, functions = collectFunctions(allLines)
+
+    # Execute only the main program
+    if startLine is not None and endLine is not None:
+        bodyLines = [
+            (lineNum, lineToks)
+            for lineNum, lineToks in remainingLines
+            if startLine < lineNum < endLine
+        ]
+    else:
+        bodyLines = remainingLines
+
+    executeStatements(bodyLines, table, on_output, on_input, functions)
 
     return table
