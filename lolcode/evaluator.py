@@ -210,16 +210,16 @@ def evaluateExpression(tree, table, functions=None, on_output=None, on_input=Non
         return None, "NOOB"
 
     # --- Literals ---
-    if op == "NUMBR":
+    if op in ("NUMBR", "NUMBR Literal"):
         return int(tree[1]), "NUMBR"
 
-    if op == "NUMBAR":
+    if op == ("NUMBAR", "NUMBAR Literal"):
         return float(tree[1]), "NUMBAR"
 
-    if op == "YARN":
+    if op in ("YARN", "YARN Literal"):
         return tree[1], "YARN"
 
-    if op == "TROOF":
+    if op in ("TROOF", "TROOF Literal"):
         return tree[1], "TROOF"
 
     # --- Variable Lookup ---
