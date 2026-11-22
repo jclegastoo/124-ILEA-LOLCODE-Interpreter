@@ -135,8 +135,11 @@ def checkVisible(lineToks, lineNum, state):
     while cur:
         expr, cur = parseExpression(cur)
         args.append(expr)
-        if cur and cur[0].classification == "Output Separator":
+        if cur:
+            if cur[0].classification != "Output Separator":
+                raise SyntaxErrorDetail(f"Expected '_' between 'VISIBLE' arguments, found '{cur[0].lexeme}'.", lineNum)
             cur = cur[1:]
+            
             if not cur:
                 raise SyntaxErrorDetail("Expected expression after '+' in 'VISIBLE'.", lineNum)
     return ("VISIBLE", args, printNewline)
