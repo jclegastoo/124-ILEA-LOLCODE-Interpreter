@@ -823,9 +823,9 @@ def executeStatements(lines, table, on_output=None, on_input=None, functions=Non
             condTruth = toTroof(itSym.value, itSym.type)
 
             if condTruth:
-                signal = executeStatements(blockInfo["yaRly"], table)
-                if signal == "BREAK":
-                    return "BREAK"
+                signal = executeStatements(blockInfo["yaRly"], table, on_output, on_input, functions)
+                if signal is not None:
+                    return signal
             else:
                 executed = False
                 for mebbeExprToks, mebbeLines in blockInfo["mebbe"]:
@@ -835,9 +835,9 @@ def executeStatements(lines, table, on_output=None, on_input=None, functions=Non
                     mVal, mType = evaluateExpression(exprTree, table, functions, on_output, on_input)
                     table.assign("IT", mVal, mType)  # MEBBE expression sets IT
                     if toTroof(mVal, mType):
-                        signal = executeStatements(mebbeLines, table)
-                        if signal == "BREAK":
-                            return "BREAK"
+                        signal = executeStatements(mebbeLines, table, on_output, on_input, functions)
+                        if signal is not None:
+                            return signal
                         executed = True
                         break
 
