@@ -56,7 +56,11 @@ def checkOmg(lineToks, lineNum, state):
         raise SyntaxErrorDetail("'OMG' cannot appear after 'OMGWTF'.", lineNum)
     if len(lineToks) < 2:
         raise SyntaxErrorDetail("Expected value after 'OMG'.", lineNum)
-    parseWholeExpression(lineToks[1:], lineNum, "after 'OMG' value")
+    valueToks = lineToks[1:]
+    isYarn = len(valueToks) == 3 and valueToks[1].classification == "YARN Literal"
+    isOther = len(valueToks) == 1 and valueToks[0].classification in ("NUMBR Literal", "NUMBAR Literal", "TROOF Literal")
+    if not (isYarn or isOther):
+        raise SyntaxErrorDetail("'OMG' must be followed by a single literal value.", lineNum)
     state.topBlockData()['stage'] = 'omg'
 
 
@@ -124,6 +128,9 @@ def checkLoopEnd(lineToks, lineNum, state):
 
 # HOW IZ I <name> [YR <param> [AN YR <param>]*]
 def checkFunctionStart(lineToks, lineNum, state):
+    if any(b[0] == 'FUNC' for b in state.blockStack):
+        raise SyntaxErrorDetail("Nested function definitions are not allowed.", lineNum)
+
     if len(lineToks) < 2:
         raise SyntaxErrorDetail("Expected function identifier after 'HOW IZ I'.", lineNum)
     funcName = lineToks[1].lexeme
