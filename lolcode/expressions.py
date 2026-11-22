@@ -91,19 +91,11 @@ def parseSmoosh(toks, isNested=False):
     args = []
     e, curToks = parseExpression(curToks, isNested=True)
     args.append(e)
-    while curToks:
-        if curToks[0].lexeme == "MKAY":
-            curToks = curToks[1:]
-            break
-        if curToks[0].lexeme == "AN":
-            curToks = curToks[1:]
-        try:
-            e, curToks = parseExpression(curToks, isNested=True)
-            args.append(e)
-        except SyntaxErrorDetail as err:
-            if "Nested " in str(err):
-                raise
-            break
+    while curToks and curToks[0].lexeme == "AN":
+        e, curToks = parseExpression(curToks[1:], isNested=True)
+        args.append(e)
+    if curToks and curToks[0].lexeme == "MKAY":
+        curToks = curToks[1:]
     return ("SMOOSH", args), curToks
 
 
@@ -116,8 +108,9 @@ def parseInfiniteArity(toks, isNested=False):
     e, curToks = parseExpression(curToks, isNested=True)
     args.append(e)
     while curToks and curToks[0].lexeme != "MKAY":
-        if curToks[0].lexeme == "AN":
-            curToks = curToks[1:]
+        if curToks[0].lexeme != "AN":
+            raise SyntaxErrorDetail(f"Expected 'AN' between '{op}' operands. found '{curToks[0].lexeme}'.", curToks[0].line)
+        curToks = curToks[1:]
         e, curToks = parseExpression(curToks, isNested=True)
         args.append(e)
     if not curToks or curToks[0].lexeme != "MKAY":
@@ -134,17 +127,14 @@ def parseFunctionCall(toks):
     funcName = curToks[0].lexeme
     curToks = curToks[1:]
     args = []
-    while curToks and curToks[0].lexeme != "MKAY":
-        if curToks[0].lexeme == "YR":
-            curToks = curToks[1:]
-        elif curToks[0].lexeme == "AN":
-            curToks = curToks[1:]
-            if curToks and curToks[0].lexeme == "YR":
-                curToks = curToks[1:]
-        else:
-            break
-        argExpr, curToks = parseExpression(curToks)
+    if curToks and curToks[0].lexeme == "YR":
+        argExpr, curToks = parseExpression(curToks[1:])
         args.append(argExpr)
-    if curToks and curToks[0].lexeme == "MKAY":
-        curToks = curToks[1:]
+        while len(curToks) >= 2 and curToks[0].lexeme == "AN" and curToks[1].lexeme == "YR":
+            argExpr, curToks = parseExpression(curToks[2:])
+            args.append(argExpr)
+    if not curToks or curToks[0].lexeme != "MKAY":
+        raise SyntaxErrorDetail(f"Expected 'MKAY' to close call to '{funcName}'.", tok.line)
+    curToks = curToks[1:]
+
     return ("CALL", funcName, args), curToks
