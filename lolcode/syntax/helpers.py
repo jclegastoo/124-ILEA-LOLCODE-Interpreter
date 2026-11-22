@@ -7,7 +7,6 @@ class CheckerState:
     """Tracks open WAZZUP and nested blocks while checking a program line by line."""
     def __init__(self):
         self.inWazzup = False
-        self.inWazzupFunction = False
         self.wazzupLine = None
         self.hasWazzup = False
         self.hasStdio = False

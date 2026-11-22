@@ -60,7 +60,7 @@ class LolcodeApp:
         inputFrame.pack(side="bottom", fill="x", padx=5, pady=5)
 
         self.inputVar = tk.StringVar()
-        self.inputEntry = tk.Entry(inputFrame, textvariable=self.inputVar)
+        self.inputEntry = tk.Entry(inputFrame)
         self.inputEntry.pack(side="left", fill="x", expand=True)
         self.inputEntry.bind("<Return>", lambda event: self.sendInput())
         sendButton = tk.Button(inputFrame, text="Send", command=self.sendInput)
@@ -70,7 +70,7 @@ class LolcodeApp:
         consoleScrollbar = ttk.Scrollbar(consoleFrame, orient="vertical", command=self.consoleText.yview)
         self.consoleText.configure(yscrollcommand=consoleScrollbar.set)
         consoleScrollbar.pack(side="right", fill="y")
-        self.consoleText.pack(side="left", fill="x", expand=True, padx=5, pady=5)
+        self.consoleText.pack(side="left", fill="both", expand=True, padx=5, pady=5)
 
     # Lexemes and symbol table go straight into main pane
     def buildTables(self, pane):

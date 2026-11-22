@@ -90,6 +90,15 @@ def checkSyntax(tokens):
 
     haiTok, kthxTok, howizTok, saysoTok = checkProgramDelimiters(execTokens)
 
+    # Only comments and function definitions may appear before HAI or after KTHXBYE
+    outsideState = CheckerState()
+    for lineNum, lineToks in groupOutsideLines(execTokens, haiTok, kthxTok):
+        insideFunction = any(b[0] == 'FUNC' for b in outsideState.blockStack)
+        if not insideFunction and lineToks[0].lexeme != "HOW IZ I":
+            where = "before 'HAI'" if lineNum < haiTok.line else "after 'KTHXBYE'"
+            raise SyntaxErrorDetail(f"Unexpected statement '{lineToks[0].lexeme}' {where}. Only comments and function definitions are allowed there.", lineNum)
+        checkStatement(lineToks, lineNum, outsideState)
+    blocks.checkUnclosedBlocks(outsideState)
 
     state = CheckerState()
     for lineNum, lineToks in groupBodyLines(execTokens, haiTok, kthxTok):
@@ -112,37 +121,11 @@ def checkStatement(lineToks, lineNum, state):
     if first.lexeme == "WAZZUP":
         return statements.checkWazzup(lineToks, lineNum, state)
     if first.lexeme == "BUHBYE":
-        if state.inWazzupFunction:
-            raise SyntaxErrorDetail(
-                "Function definition missing 'IF U SAY SO' before BUHBYE.",
-                lineNum
-            )
-
         return statements.checkBuhbye(lineToks, lineNum, state)
 
-    # Allow variable and function declarations inside WAZZUP
-    if state.inWazzup:
-
-        if first.lexeme == "HOW IZ I":
-            if state.inWazzupFunction:
-                raise SyntaxErrorDetail(
-                    "Nested function definitions are not allowed.",
-                    lineNum
-                )
-
-            state.inWazzupFunction = True
-
-        elif first.lexeme == "IF U SAY SO":
-            if state.inWazzupFunction:
-                state.inWazzupFunction = False
-
-        elif not state.inWazzupFunction and first.lexeme != "I HAS A":
-            raise SyntaxErrorDetail(
-                f"Only variable and function declarations "
-                f"are allowed inside WAZZUP...BUHBYE. "
-                f"Found '{first.lexeme}'.",
-                lineNum
-            )
+    # Only variable declarations are allowed inside WAZZUP
+    if state.inWazzup and first.lexeme != "I HAS A":
+        raise SyntaxErrorDetail(f"Only variable declarations are allowed inside WAZZUP...BUHBYE. Found '{first.lexeme}'.", lineNum)
 
     if first.lexeme == "I HAS A":
         return statements.checkDeclaration(lineToks, lineNum, state)
@@ -212,15 +195,6 @@ def checkProgramDelimiters(execTokens):
         raise SyntaxErrorDetail(f"Closing delimiter '{kthxTok.lexeme}' on line {kthxTok.line} cannot appear before 'HAI' on line {haiTok.line}.", kthxTok.line)
 
 
-    # Check for executable code before HAI
-    for t in execTokens:
-        if t.line < haiTok.line:
-            if howizTok is not None and t.line == howizTok.line:
-                break
-            else:
-                raise SyntaxErrorDetail(f"Unexpected statement '{t.lexeme}' before 'HAI'.", t.line)
-
-
     # Tokens on HAI line: HAI [version]
     haiLineTokens = [t for t in execTokens if t.line == haiTok.line]
     if haiLineTokens[0] != haiTok:
@@ -241,63 +215,6 @@ def checkProgramDelimiters(execTokens):
         other = [t for t in kthxLineTokens if t != kthxTok][0]
         raise SyntaxErrorDetail(f"Unexpected token '{other.lexeme}' on '{kthxTok.lexeme}' line.", kthxTok.line)
 
-
-
-    # Check for executable code after KTHXBYE
-    # Allow function definitions and comments outside the main program
-
-    afterKthx = [t for t in execTokens if t.line > kthxTok.line]
-
-    # Group tokens by line
-    linesAfter = {}
-
-    for t in afterKthx:
-        linesAfter.setdefault(t.line, []).append(t)
-
-    inFunction = False
-    functionStart = None
-
-    for lineNum, lineToks in sorted(linesAfter.items()):
-        firstLex = lineToks[0].lexeme
-
-        if not inFunction:
-            # Allow function declarations after KTHXBYE
-            if firstLex == "HOW IZ I":
-                inFunction = True
-                functionStart = lineNum
-                continue
-
-            # Reject other executable statements
-            raise SyntaxErrorDetail(
-                f"Unexpected statement '{firstLex}' after closing 'KTHXBYE'.",
-                lineNum
-            )
-
-        else:
-            # End of function definition
-            if firstLex == "IF U SAY SO":
-                inFunction = False
-                functionStart = None
-                continue
-
-            # Prevent nested function declarations
-            if firstLex == "HOW IZ I":
-                raise SyntaxErrorDetail(
-                    "Nested function declarations are not allowed.",
-                    lineNum
-                )
-
-            # Statements inside the function body are allowed
-
-    # Check for unclosed function
-    if inFunction:
-        raise SyntaxErrorDetail(
-            "Function declaration missing 'IF U SAY SO'.",
-            functionStart
-        )
-
-
-
     return haiTok, kthxTok, howizTok, saysoTok
 
 def groupBodyLines(execTokens, haiTok, kthxTok):
@@ -305,5 +222,14 @@ def groupBodyLines(execTokens, haiTok, kthxTok):
     linesDict = {}
     for t in execTokens:
         if haiTok.line < t.line < kthxTok.line:
+            linesDict.setdefault(t.line, []).append(t)
+    return sorted(linesDict.items())
+
+def groupOutsideLines(execTokens, haiTok, kthxTok):
+    """Returns [(lineNum, tokens)] for every line before HAI or after KTHXBYE"""
+
+    linesDict = {}
+    for t in execTokens:
+        if t.line < haiTok.line or t.line > kthxTok.line:
             linesDict.setdefault(t.line, []).append(t)
     return sorted(linesDict.items())
