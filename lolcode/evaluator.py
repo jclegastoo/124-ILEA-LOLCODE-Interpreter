@@ -22,6 +22,7 @@ This module handles semantic analysis and evaluation for LOLCODE programs:
 4. Symbol table population via program execution.
 """
 
+import math
 import re
 from .constants import commentClasses
 from .expressions import parseExpression
@@ -87,9 +88,8 @@ def castToYarn(value, valueType):
     if valueType == "TROOF":
         return "WIN" if toTroof(value, valueType) else "FAIL"
     if valueType == "NUMBAR":
-        text = str(value)
-        # Preserve standard float representation without redundant exponential formatting
-        return text
+        whole, _, frac = repr(float(value)).partition(".")
+        return whole + "." + (frac[:2] or "0")
     return str(value)
 
 
@@ -230,9 +230,6 @@ def evaluateExpression(tree, table, functions=None, on_output=None, on_input=Non
         if symbol is None:
             raise ValueError(f"Undeclared variable '{varName}'.")
 
-        if symbol.type == "NOOB":
-            raise ValueError(f"Variable '{varName}' is uninitialized.")
-
         value = symbol.value
         if symbol.type == "NUMBR":
             value = int(value)
@@ -266,9 +263,9 @@ def evaluateExpression(tree, table, functions=None, on_output=None, on_input=Non
             elif op == "PRODUKT OF":
                 res = left * right
             elif op == "QUOSHUNT OF":
-                res = left // right
+                res = int(left / right)
             elif op == "MOD OF":
-                res = left % right
+                res = left - right * int(left / right) 
             elif op == "BIGGR OF":
                 res = max(left, right)
             elif op == "SMALLR OF":
@@ -287,7 +284,7 @@ def evaluateExpression(tree, table, functions=None, on_output=None, on_input=Non
         elif op == "QUOSHUNT OF":
             res = l / r
         elif op == "MOD OF":
-            res = l % r
+            res = math.fmod(l, r)
         elif op == "BIGGR OF":
             res = max(l, r)
         elif op == "SMALLR OF":
@@ -355,6 +352,10 @@ def evaluateExpression(tree, table, functions=None, on_output=None, on_input=Non
         parts = []
         for arg in tree[1]:
             val, vtype = evaluateExpression(arg, table, functions, on_output, on_input)
+
+            if vtype == "NOOB":
+                raise ValueError("Cannot implicitly cast NOOB to YARN in 'SMOOSH'.")
+
             parts.append(castToYarn(val, vtype))
         return "".join(parts), "YARN"
 
@@ -507,13 +508,6 @@ def collectFunctions(lines):
             i += 1
             continue
 
-        # Function declarations must be inside WAZZUP
-        if inProgram and not inWazzup:
-            raise ValueError(
-                f"Function declaration outside WAZZUP/BUHBYE "
-                f"at line {lineNum}."
-            )
-
         if len(toks) < 2:
             raise ValueError("Missing function name.")
 
@@ -611,78 +605,6 @@ def executeStatements(lines, table, on_output=None, on_input=None, functions=Non
         # Break keyword: GTFO
         if first.lexeme == "GTFO":
             return "BREAK"
-
-        
-        # Function Call: I IZ <name> [YR arg ...] MKAY
-        # Function Call: I IZ <name> [YR arg ...] MKAY
-        if first.lexeme == "I IZ" or ( len(lineToks) > 1 and first.lexeme == "I" and lineToks[1].lexeme == "IZ"):
-            if len(lineToks) < 3 or (
-                first.lexeme == "I" and len(lineToks) < 4
-            ):
-                raise ValueError("Incomplete function call.")
-
-            namePos = 1 if first.lexeme == "I IZ" else 2
-            functionName = lineToks[namePos].lexeme
-
-            if functionName not in functions:
-                raise ValueError(
-                    f"Undefined function '{functionName}'."
-                )
-
-            if lineToks[-1].lexeme != "MKAY":
-                raise ValueError("Function call missing MKAY.")
-
-            params, functionBody = functions[functionName]
-
-            # Evaluate arguments in the caller's scope
-            argTokens = lineToks[namePos + 1:-1]
-            arguments = []
-
-            while argTokens:
-                if argTokens[0].lexeme != "YR":
-                    raise ValueError(
-                        "Expected YR before function argument."
-                    )
-
-                exprTree, remaining = parseExpression(argTokens[1:])
-                val, valType = evaluateExpression(exprTree, table, functions, on_output, on_input)
-                arguments.append((val, valType))
-                argTokens = remaining
-
-                if argTokens:
-                    if argTokens[0].lexeme != "AN":
-                        raise ValueError(
-                            "Expected AN between function arguments."
-                        )
-                    argTokens = argTokens[1:]
-
-            # Check parameter count
-            if len(arguments) != len(params):
-                raise ValueError(
-                    f"Function '{functionName}' expects "
-                    f"{len(params)} arguments, "
-                    f"got {len(arguments)}."
-                )
-
-            # Create local symbol table
-            localTable = SymbolTable()
-
-            # Bind arguments to parameters
-            for paramName, (val, valType) in zip(params, arguments):
-                localTable.declare(paramName)
-                localTable.assign(paramName, val, valType)
-
-            # Execute function body
-            executeStatements(
-                functionBody,
-                localTable,
-                on_output,
-                on_input,
-                functions
-            )
-
-            i += 1
-            continue
 
         # Loop Statement
         if first.lexeme == "IM IN YR":
@@ -789,6 +711,10 @@ def executeStatements(lines, table, on_output=None, on_input=None, functions=Non
                     bodyLines, table, on_output, on_input, functions
                 )
 
+                # FOUND YR inside the loop returns from function
+                if isinstance(signal, tuple):
+                    return signal
+
                 # GTFO terminates the loop
                 if signal == "BREAK":
                     break
@@ -866,8 +792,13 @@ def executeStatements(lines, table, on_output=None, on_input=None, functions=Non
             while cur:
                 exprTree, cur = parseExpression(cur)
                 val, valType = evaluateExpression(exprTree, table, functions, on_output, on_input)
-                table.assign("IT", val, valType)
+                if valType == "NOOB":
+                    raise ValueError("Cannot implicitly cast NOOB to YARN in 'VISIBLE'.")
                 output = output + castToYarn(val, valType)
+
+                if cur and cur[0].lexeme == "+":
+                    cur = cur[1:]
+
             if not suppress_newline:
                 output = output + "\n"
             if on_output:
@@ -911,9 +842,9 @@ def executeStatements(lines, table, on_output=None, on_input=None, functions=Non
                         break
 
                 if not executed and blockInfo["noWai"] is not None:
-                    signal = executeStatements(blockInfo["noWai"], table)
-                    if signal == "BREAK":
-                        return "BREAK"
+                    signal = executeStatements(blockInfo["noWai"], table, on_output, on_input, functions)
+                    if signal is not None:
+                        return signal
 
             i = endIdx + 1
             continue
@@ -923,6 +854,7 @@ def executeStatements(lines, table, on_output=None, on_input=None, functions=Non
             blockInfo, endIdx = parseWtfBlock(lines, i)
             itSym = table.lookup("IT")
             matched = False
+            broke = False
 
             for caseValToks, caseLines in blockInfo["cases"]:
                 if not matched:
@@ -934,27 +866,28 @@ def executeStatements(lines, table, on_output=None, on_input=None, functions=Non
                         matched = True
 
                 if matched:
-                    signal = executeStatements(caseLines, table)
+                    signal = executeStatements(caseLines, table, on_output, on_input, functions)
+                    if isinstance(signal, tuple):
+                        return signal
                     if signal == "BREAK":
+                        broke = True
                         break
 
             # If no OMG case matched, execute the default OMGWTF case
-            if not matched and blockInfo["default"] is not None:
-                executeStatements(blockInfo["default"], table)
+            if not broke and blockInfo["default"] is not None:
+                signal = executeStatements(blockInfo["default"], table, on_output, on_input, functions)
+                if isinstance(signal, tuple):
+                    return signal
 
             i = endIdx + 1
             continue
 
         # Standalone expression statement (evaluates and assigns result to IT)
-        try:
-            exprTree, remaining = parseExpression(lineToks)
-            if not remaining:
-                val, valType = evaluateExpression(exprTree, table, functions, on_output, on_input)
-                table.assign("IT", val, valType)
-                i += 1
-                continue
-        except Exception:
-            pass
+        exprTree, remaining = parseExpression(lineToks)
+        if remaining:
+            raise ValueError(f"Unexpected token '{remaining[0].lexeme}' at line {lineNum}.")
+        val, valType = evaluateExpression(exprTree, table, functions, on_output, on_input)
+        table.assign("IT", val, valType)
 
         i += 1
 
