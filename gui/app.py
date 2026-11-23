@@ -201,12 +201,17 @@ class LolcodeApp:
         self.inputEntry.delete(0, tk.END)
 
     def consoleRead(self, varName):
+        self.statusBar.config(text=f"Status: Waiting for input for '{varName}'...", fg="blue")
+        self.consoleWrite(f"GIMMEH {varName}: ")
         self.inputVar.set("")
         self.inputEntry.focus_set()
         self.root.wait_variable(self.inputVar)
         if self.closing:
             raise RuntimeError("Window closed")
-        return self.inputVar.get()
+        value = self.inputVar.get()
+        self.consoleWrite(f"{value}\n")
+        self.statusBar.config(text="Status: Running...", fg="black")
+        return value
 
     def onClose(self):
         self.closing = True
