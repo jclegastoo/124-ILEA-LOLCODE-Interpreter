@@ -138,27 +138,13 @@ def castValue(value, valueType, targetType):
 
 def isEqual(leftVal, leftType, rightVal, rightType):
     """
-    Evaluates equality between two values according to LOLCODE 1.2 rules:
-      - If both are numerical (NUMBR or NUMBAR), numerical comparison is used.
-      - If both have the same type, values are compared directly.
-      - Otherwise, strict type matching applies and equality evaluates to False
-        (no automatic cross-type casting between non-numerics).
+    Evaluates equality for BOTH SAEM / DIFFRINT according to the project specs:
+      - There is no automatic typecasting for operands in a comparison operation.
+      - Values are equal only if they have the same type and the same value
+        (NUMBRs compared as integers, NUMBARs as floating-point numbers).
+      - Operands of different types (e.g. NUMBR 1 vs NUMBAR 1.0, or YARN "1" vs NUMBR 1)
+        are never equal.
     """
-    
-    if leftType in ("NUMBR", "NUMBAR") and rightType in ("NUMBR", "NUMBAR"):
-        return float(leftVal) == float(rightVal)
-
-    # Allow comparison between numeric YARN and numeric types (e.g. from GIMMEH)
-    if leftType in ("NUMBR", "NUMBAR") and rightType == "YARN":
-        try:
-            return float(leftVal) == float(rightVal)
-        except (ValueError, TypeError):
-            return False
-    if leftType == "YARN" and rightType in ("NUMBR", "NUMBAR"):
-        try:
-            return float(leftVal) == float(rightVal)
-        except (ValueError, TypeError):
-            return False
 
     if leftType == rightType:
         return leftVal == rightVal
