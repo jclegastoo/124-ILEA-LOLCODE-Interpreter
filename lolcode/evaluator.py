@@ -874,7 +874,7 @@ def executeStatements(lines, table, on_output=None, on_input=None, functions=Non
                         break
 
             # If no OMG case matched, execute the default OMGWTF case
-            if not broke and blockInfo["default"] is not None:
+            if not matched and not broke and blockInfo["default"] is not None:
                 signal = executeStatements(blockInfo["default"], table, on_output, on_input, functions)
                 if isinstance(signal, tuple):
                     return signal
