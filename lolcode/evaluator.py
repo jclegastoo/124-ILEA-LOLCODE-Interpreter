@@ -147,6 +147,19 @@ def isEqual(leftVal, leftType, rightVal, rightType):
     
     if leftType in ("NUMBR", "NUMBAR") and rightType in ("NUMBR", "NUMBAR"):
         return float(leftVal) == float(rightVal)
+
+    # Allow comparison between numeric YARN and numeric types (e.g. from GIMMEH)
+    if leftType in ("NUMBR", "NUMBAR") and rightType == "YARN":
+        try:
+            return float(leftVal) == float(rightVal)
+        except (ValueError, TypeError):
+            return False
+    if leftType == "YARN" and rightType in ("NUMBR", "NUMBAR"):
+        try:
+            return float(leftVal) == float(rightVal)
+        except (ValueError, TypeError):
+            return False
+
     if leftType == rightType:
         return leftVal == rightVal
     return False
