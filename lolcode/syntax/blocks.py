@@ -133,16 +133,17 @@ def checkLoopEnd(lineToks, lineNum, state):
 
 # HOW IZ I <name> [YR <param> [AN YR <param>]*]
 def checkFunctionStart(lineToks, lineNum, state):
-    funcName = lineToks[1].lexeme
-    if lineToks[1].classification != "Function Identifier":
-        raise SyntaxErrorDetail(f"Invalid function identifier '{funcName}'.", lineNum)
-
     if any(b[0] == 'FUNC' for b in state.blockStack):
         raise SyntaxErrorDetail("Nested function definitions are not allowed.", lineNum)
 
     if len(lineToks) < 2:
         raise SyntaxErrorDetail("Expected function identifier after 'HOW IZ I'.", lineNum)
-    funcName = lineToks[1].lexeme
+
+    funcTok = lineToks[1]
+    funcName = funcTok.lexeme
+    if funcTok.classification != "Function Identifier":
+        raise SyntaxErrorDetail(f"Invalid function identifier '{funcName}'.", lineNum)
+
     cur = lineToks[2:]
     params = set()
 
@@ -154,17 +155,27 @@ def checkFunctionStart(lineToks, lineNum, state):
             raise SyntaxErrorDetail("Expected 'YR <parameter>'.", lineNum)
 
         param = cur[1]
-        if not isValidIdentifier(param.lexeme) or param.classification != "Variable Identifier":
+        if (
+            not isValidIdentifier(param.lexeme)
+            or param.classification != "Variable Identifier"
+        ):
             raise SyntaxErrorDetail("Expected parameter identifier.", lineNum)
+
         if param.lexeme in params:
-            raise SyntaxErrorDetail(f"Duplicate function parameter '{param.lexeme}'.", lineNum)
+            raise SyntaxErrorDetail(
+                f"Duplicate function parameter '{param.lexeme}'.", lineNum
+            )
         params.add(param.lexeme)
 
         cur = cur[2:]
         if cur:
             if len(cur) < 2 or cur[0].lexeme != "AN" or cur[1].lexeme != "YR":
-                raise SyntaxErrorDetail("Expected 'AN YR <parameter>' between function parameters.", lineNum)
+                raise SyntaxErrorDetail(
+                    "Expected 'AN YR <parameter>' between function parameters.",
+                    lineNum,
+                )
             cur = cur[1:]
+
     state.blockStack.append(('FUNC', lineNum, {'name': funcName}))
 
 
