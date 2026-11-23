@@ -88,7 +88,7 @@ def castToYarn(value, valueType):
     if valueType == "TROOF":
         return "WIN" if toTroof(value, valueType) else "FAIL"
     if valueType == "NUMBAR":
-        whole, _, frac = repr(float(value)).partition(".")
+        whole, _, frac = repr(round(float(value), 10)).partition(".")
         return whole + "." + (frac[:2] or "0")
     return str(value)
 
@@ -146,8 +146,7 @@ def isEqual(leftVal, leftType, rightVal, rightType):
       - Otherwise, strict type matching applies and equality evaluates to False
         (no automatic cross-type casting between non-numerics).
     """
-    if leftType in ("NUMBR", "NUMBAR") and rightType in ("NUMBR", "NUMBAR"):
-        return float(leftVal) == float(rightVal)
+    
     if leftType == rightType:
         return leftVal == rightVal
     return False
@@ -908,9 +907,9 @@ def buildSymbolTable(tokens, on_output=None, on_input=None):
     endLine = None
 
     for t in execTokens:
-        if t.lexeme == "HAI" and startLine is None:
+        if t.lexeme == "HAI" and t.classification == "Code Delimiter" and startLine is None:
             startLine = t.line
-        elif t.lexeme == "KTHXBYE":
+        elif t.lexeme == "KTHXBYE" and t.classification == "Code Delimiter":
             endLine = t.line
 
     # Group all tokens by line, including outside HAI

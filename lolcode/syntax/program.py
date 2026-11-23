@@ -39,12 +39,12 @@ def checkComments(tokens):
     for t in tokens:
         if t.classification not in commentClasses:
             linesWithCode.add(t.line)
-        elif t.lexeme == "OBTW":
+        elif t.classification == "Multiline Commen Start":
             linesWithObtw.add(t.line)
             obtwCount += 1
             if firstObtwLine is None:
                 firstObtwLine = t.line
-        elif t.lexeme == "TLDR":
+        elif t.classification == "Multiline Comment End":
             linesWithTldr.add(t.line)
             if obtwCount == 0:
                 raise SyntaxErrorDetail("Found closing comment delimiter 'TLDR' without matching 'OBTW'.", t.line)
@@ -159,10 +159,10 @@ def checkProgramDelimiters(execTokens):
 
 
     # Locate HAI and KTHXBYE
-    haiTokens = [t for t in execTokens if t.lexeme == "HAI"]
-    kthxTokens = [t for t in execTokens if t.lexeme == "KTHXBYE"]
-    howizTokens = [t for t in execTokens if t.lexeme == "HOW IZ I"]
-    saysoTokens = [t for t in execTokens if t.lexeme == "IF U SAY SO"]
+    haiTokens = [t for t in execTokens if t.lexeme == "HAI" and t.classification != "YARN Literal"]
+    kthxTokens = [t for t in execTokens if t.lexeme == "KTHXBYE" and t.classification != "YARN Literal"]
+    howizTokens = [t for t in execTokens if t.lexeme == "HOW IZ I" and t.classification != "YARN Literal"]
+    saysoTokens = [t for t in execTokens if t.lexeme == "IF U SAY SO" and t.classification != "YARN Literal"]
 
 
     if not haiTokens and not kthxTokens:
