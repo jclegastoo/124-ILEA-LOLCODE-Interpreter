@@ -138,8 +138,10 @@ def checkStatement(lineToks, lineNum, state):
         raise SyntaxErrorDetail(f"Expected 'OMG' or 'OMGWTF' in switch block, found '{first.lexeme}'.", lineNum)
 
 
-    # Mark that an executable statement has been encountered
-    state.hasExecutedStatements = True
+    # Mark that an executable statement has been encountered (outside function definitions)
+    insideFunction = any(b[0] == 'FUNC' for b in state.blockStack)
+    if not insideFunction and first.lexeme not in ("HOW IZ I", "IF U SAY SO"):
+        state.hasExecutedStatements = True
 
 
     # Statements identified by their second token

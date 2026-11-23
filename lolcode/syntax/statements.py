@@ -45,6 +45,9 @@ def checkWazzup(lineToks, lineNum, state):
     if state.hasExecutedStatements:
         raise SyntaxErrorDetail("'WAZZUP' cannot appear after executable statements.", lineNum)
 
+    if state.declaredVariables:
+        raise SyntaxErrorDetail("'WAZZUP' must appear before any variable declarations.", lineNum)
+
     expectNoExtraTokens(lineToks, "WAZZUP", lineNum)
 
     state.inWazzup = True
@@ -62,6 +65,12 @@ def checkBuhbye(lineToks, lineNum, state):
 
 # I HAS A <var> [ITZ <expr>]
 def checkDeclaration(lineToks, lineNum, state):
+    if state.hasWazzup and not state.inWazzup:
+        raise SyntaxErrorDetail("Variable declaration 'I HAS A' is not allowed outside 'WAZZUP...BUHBYE'.", lineNum)
+
+    if state.hasExecutedStatements:
+        raise SyntaxErrorDetail("Variable declaration 'I HAS A' cannot appear after executable statements.", lineNum)
+
     if len(lineToks) < 2:
         raise SyntaxErrorDetail("Expected variable identifier after 'I HAS A'.", lineNum)
 
