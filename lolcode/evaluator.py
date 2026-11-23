@@ -1,5 +1,5 @@
 """
-evaluator.py - Semantic Analyzer and Evaluator for LOLCODE (v1.2).
+evaluator.py - Semantic Analyzer and Evaluator for LOLCODE
 
 This module handles semantic analysis and evaluation for LOLCODE programs:
 1. Type coercion helpers (toTroof, toNumeric, castToYarn, castValue, isEqual)
@@ -36,7 +36,6 @@ from .symbol_table import SymbolTable
 def toTroof(value, valueType):
     """
     Converts a value and its LOLCODE type to Python boolean (TROOF).
-    LOLCODE 1.2 truthiness rules:
       - NOOB: always FAIL (False)
       - TROOF: 'WIN' is True, 'FAIL' is False
       - NUMBR / NUMBAR: zero (0 / 0.0) is False, non-zero is True
@@ -57,7 +56,6 @@ def toTroof(value, valueType):
 def toNumeric(val, valType, opName):
     """
     Coerces an operand to a numeric value (int or float) and type ('NUMBR' or 'NUMBAR').
-    Per LOLCODE 1.2 math specifications:
       - NUMBR and NUMBAR are used directly.
       - YARN is parsed as an int if purely digits, or float if containing a decimal point.
       - TROOF converts: WIN -> 1, FAIL -> 0 (NUMBR).
@@ -70,7 +68,7 @@ def toNumeric(val, valType, opName):
     if valType == "TROOF":
         return (1 if toTroof(val, valType) else 0), "NUMBR"
     if valType == "YARN":
-        s = str(val).strip()
+        s = str(val)
         if re.fullmatch(r"-?\d+", s):
             return int(s), "NUMBR"
         if re.fullmatch(r"-?\d+\.\d+", s):
@@ -106,7 +104,7 @@ def castValue(value, valueType, targetType):
     # 2. Cast to NUMBR or NUMBAR
     if targetType in ("NUMBR", "NUMBAR"):
         if valueType == "YARN":
-            s = str(value).strip()
+            s = str(value)
             if not re.fullmatch(r"-?\d+(\.\d+)?", s):
                 raise ValueError(f"Cannot convert YARN '{value}' to {targetType}.")
             num = float(s)
