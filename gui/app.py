@@ -155,6 +155,7 @@ class LolcodeApp:
             return
         except Exception as e:
             self.statusBar.config(text=f"Status: Syntax error: {e}", fg="red")
+            self.consoleWrite(f"Syntax Error: {e}\n")
             messagebox.showerror("Syntax Error", str(e))
             return
 
@@ -167,12 +168,14 @@ class LolcodeApp:
             self.statusBar.config(text="Status: Program executed successfully.", fg="green")
         except (ValueError, NotImplementedError, ZeroDivisionError) as e:
             self.statusBar.config(text=f"Status: Evaluation Error: {e}", fg="red")
+            self.consoleWrite(f"Evaluation Error: {e}\n")
             messagebox.showerror("Evaluation Error", str(e))
             return
         except Exception as e:
             if self.closing:
                 return
             self.statusBar.config(text=f"Status: Evaluation Error: {e}", fg="red")
+            self.consoleWrite(f"Evaluation Error: {e}\n")
             messagebox.showerror("Evaluation Error", str(e))
             return
         finally:
@@ -184,6 +187,7 @@ class LolcodeApp:
         if line is not None:
             self.textEditor.tag_add("error_highlight", f"{line}.0", f"{line}.end")
             self.textEditor.see(f"{line}.0")
+        self.consoleWrite(f"Syntax Error: {message}\n")
         messagebox.showerror("Syntax Error", message)
 
     def consoleWrite(self, text):

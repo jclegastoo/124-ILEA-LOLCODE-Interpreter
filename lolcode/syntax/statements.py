@@ -62,9 +62,6 @@ def checkBuhbye(lineToks, lineNum, state):
 
 # I HAS A <var> [ITZ <expr>]
 def checkDeclaration(lineToks, lineNum, state):
-    if not state.inWazzup:
-        raise SyntaxErrorDetail("'I HAS A' declaration is only allowed inside 'WAZZUP' and 'BUHBYE'.", lineNum)
-
     if len(lineToks) < 2:
         raise SyntaxErrorDetail("Expected variable identifier after 'I HAS A'.", lineNum)
 
@@ -135,11 +132,8 @@ def checkVisible(lineToks, lineNum, state):
     while cur:
         expr, cur = parseExpression(cur)
         args.append(expr)
-        if cur:
-            if cur[0].classification != "Output Separator":
-                raise SyntaxErrorDetail(f"Expected '+' between 'VISIBLE' arguments, found '{cur[0].lexeme}'.", lineNum)
+        if cur and cur[0].classification == "Output Separator":
             cur = cur[1:]
-            
             if not cur:
                 raise SyntaxErrorDetail("Expected expression after '+' in 'VISIBLE'.", lineNum)
     return ("VISIBLE", args, printNewline)

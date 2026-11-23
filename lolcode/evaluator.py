@@ -145,6 +145,8 @@ def isEqual(leftVal, leftType, rightVal, rightType):
         (no automatic cross-type casting between non-numerics).
     """
     
+    if leftType in ("NUMBR", "NUMBAR") and rightType in ("NUMBR", "NUMBAR"):
+        return float(leftVal) == float(rightVal)
     if leftType == rightType:
         return leftVal == rightVal
     return False
