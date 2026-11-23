@@ -39,7 +39,7 @@ def checkComments(tokens):
     for t in tokens:
         if t.classification not in commentClasses:
             linesWithCode.add(t.line)
-        elif t.classification == "Multiline Commen Start":
+        elif t.classification == "Multiline Comment Start":
             linesWithObtw.add(t.line)
             obtwCount += 1
             if firstObtwLine is None:

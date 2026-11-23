@@ -91,13 +91,18 @@ def checkLoopStart(lineToks, lineNum, state):
         raise SyntaxErrorDetail("Nested loops are not allowed.", lineNum)
     if len(lineToks) < 2:
         raise SyntaxErrorDetail("Expected loop label after 'IM IN YR'.", lineNum)
+    if lineToks[1].classification != "Loop Identifier":
+        raise SyntaxErrorDetail(f"Invalid loop label '{lineToks[1].lexeme}'.", lineNum)
     label = lineToks[1].lexeme
     cur = lineToks[2:]
-    # Optional operation: UPPIN / NERFIN YR <var>
-    if cur and cur[0].lexeme in ("UPPIN", "NERFIN"):
-        if len(cur) < 3 or cur[1].lexeme != "YR":
-            raise SyntaxErrorDetail(f"Expected 'YR <var>' after '{cur[0].lexeme}'.", lineNum)
-        cur = cur[3:]
+
+    #Required operation: UPPIN / NERFIN YR <var>
+    if not cur or cur[0].lexeme not in ("UPPIN", "NERFIN"):
+        raise SyntaxErrorDetail("Expected 'UPPIN' or 'NERFIN' after the loop label.", lineNum)
+    if len(cur) < 3 or cur[1].lexeme != "YR" or cur[2].classification != "Variable Identifier":
+        raise SyntaxErrorDetail(f"Expected 'YR <variable>' after '{cur[0].lexeme}'.", lineNum)
+    cur = cur[3:]
+
     # Optional condition: TIL / WILE <expr>
     if cur and cur[0].lexeme in ("TIL", "WILE"):
         condType = cur[0].lexeme

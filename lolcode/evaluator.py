@@ -628,6 +628,9 @@ def executeStatements(lines, table, on_output=None, on_input=None, functions=Non
                     f"Undeclared loop variable '{loopVar}'."
                 )
 
+            if table.lookup(loopVar).type == "NOOB":
+                raise ValueError(f"Loop variable '{loopVar}' is NOOB and cannot be cast to a number.")
+
             # Parse optional TIL / WILE condition
             conditionType = None
             conditionTokens = []

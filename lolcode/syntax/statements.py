@@ -137,7 +137,7 @@ def checkVisible(lineToks, lineNum, state):
         args.append(expr)
         if cur:
             if cur[0].classification != "Output Separator":
-                raise SyntaxErrorDetail(f"Expected '_' between 'VISIBLE' arguments, found '{cur[0].lexeme}'.", lineNum)
+                raise SyntaxErrorDetail(f"Expected '+' between 'VISIBLE' arguments, found '{cur[0].lexeme}'.", lineNum)
             cur = cur[1:]
             
             if not cur:
@@ -158,6 +158,9 @@ def checkGimmeh(lineToks, lineNum, state):
 
 # FOUND YR <expr>
 def checkFoundYr(lineToks, lineNum, state):
+    if not any(b[0] == 'FUNC' for b in state.blockStack):
+        raise SyntaxErrorDetail("'FOUND YR' can only be used inside a function.", lineNum)
+
     if len(lineToks) < 2:
         raise SyntaxErrorDetail("Expected expression after 'FOUND YR'.", lineNum)
     return ("FOUND YR", parseWholeExpression(lineToks[1:], lineNum, "after 'FOUND YR' expression"))
@@ -166,6 +169,9 @@ def checkFoundYr(lineToks, lineNum, state):
 
 # GTFO
 def checkGtfo(lineToks, lineNum, state):
+    if not any(b[0] in ('LOOP', 'WTF?', 'FUNC') for b in state.blockStack):
+        raise SyntaxErrorDetail("'GTFO' can only be used inside a loop, switch, or function.", lineNum)
+
     expectNoExtraTokens(lineToks, "GTFO", lineNum)
     return("GTFO",)
 

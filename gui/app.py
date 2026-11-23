@@ -11,6 +11,8 @@ class LolcodeApp:
         self.root.title("LOLCODE Interpreter")
         self.root.geometry("1280x780")
         self.root.minsize(700, 500)
+        self.closing = False
+        self.root.protocol("WM_DELETE_WINDOW", self.onClose)
 
         # Bottom widgets are packed first so they keep their space when the window shrinks
         self.buildStatusBar()
@@ -48,8 +50,8 @@ class LolcodeApp:
         self.textEditor.pack(fill="both", expand=True, padx=5, pady=5)
 
     def buildRunButton(self):
-        runButton = tk.Button(self.root, text="Run", pady=6, command=self.run)
-        runButton.pack(side="bottom", fill="x", padx=10, pady=5)
+        self.runButton = tk.Button(self.root, text="Run", pady=6, command=self.run)
+        self.runButton.pack(side="bottom", fill="x", padx=10, pady=5)
 
     def buildConsole(self):
         consoleFrame = tk.LabelFrame(self.root, text="CONSOLE")
@@ -158,6 +160,7 @@ class LolcodeApp:
 
         # Fill the symbol table only for syntactically valid programs
         try:
+            self.runButton.config(state="disabled")
             table = buildSymbolTable(tokens, on_output=self.consoleWrite, on_input=self.consoleRead)
             for symbol in table:
                 self.symbolTable.insert("", tk.END, values=(symbol.name, symbol.displayValue()))
@@ -167,9 +170,14 @@ class LolcodeApp:
             messagebox.showerror("Evaluation Error", str(e))
             return
         except Exception as e:
+            if self.closing:
+                return
             self.statusBar.config(text=f"Status: Evaluation Error: {e}", fg="red")
             messagebox.showerror("Evaluation Error", str(e))
             return
+        finally:
+            if not self.closing:
+                self.runButton.config(state="normal")
 
     def showError(self, message, line):
         self.statusBar.config(text=f"Status: {message}", fg="red")
@@ -192,4 +200,11 @@ class LolcodeApp:
         self.inputVar.set("")
         self.inputEntry.focus_set()
         self.root.wait_variable(self.inputVar)
+        if self.closing:
+            raise RuntimeError("Window closed")
         return self.inputVar.get()
+
+    def onClose(self):
+        self.closing = True
+        self.inputVar.set("")
+        self.root.destroy()
