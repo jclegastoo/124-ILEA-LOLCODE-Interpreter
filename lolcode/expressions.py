@@ -43,7 +43,7 @@ def parseExpression(toks, isNested=False):
     if tok.lexeme in ("ALL OF", "ANY OF"):
         return parseInfiniteArity(toks, isNested)
     if tok.lexeme == "I IZ":
-        return parseFunctionCall(toks)
+        return parseFunctionCall(toks, isNested=isNested)
     #Variable Identifier or IT
     if tok.classification in ("Variable Identifier", "Implicit Variable"):
         return ("VAR", tok.lexeme), toks[1:]
@@ -119,7 +119,7 @@ def parseInfiniteArity(toks, isNested=False):
 
 
 # I IZ <func> [YR <arg> [AN YR <arg>]*] [MKAY]
-def parseFunctionCall(toks):
+def parseFunctionCall(toks, isNested=False):
     tok = toks[0]
     curToks = toks[1:]
     if not curToks or curToks[0].classification != "Function Identifier":
@@ -128,10 +128,10 @@ def parseFunctionCall(toks):
     curToks = curToks[1:]
     args = []
     if curToks and curToks[0].lexeme == "YR":
-        argExpr, curToks = parseExpression(curToks[1:])
+        argExpr, curToks = parseExpression(curToks[1:], isNested=isNested)
         args.append(argExpr)
         while len(curToks) >= 2 and curToks[0].lexeme == "AN" and curToks[1].lexeme == "YR":
-            argExpr, curToks = parseExpression(curToks[2:])
+            argExpr, curToks = parseExpression(curToks[2:], isNested=isNested)
             args.append(argExpr)
     if not curToks or curToks[0].lexeme != "MKAY":
         raise SyntaxErrorDetail(f"Expected 'MKAY' to close call to '{funcName}'.", tok.line)
